@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Devin: use the official hexagonal product mark across the app, website, and HTTP dashboard. Thanks @codertesla!
+- Devin: use the official hexagonal product mark across the app, website, and HTTP dashboard (#4458). Thanks @codertesla!
 
 ## 0.74.1 — 2026-10-11
 
