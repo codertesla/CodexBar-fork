@@ -117,6 +117,48 @@ struct ProviderIconResourcesTests {
         let cli = try String(
             contentsOf: root.appending(path: "Sources/CodexBarCLI/CLIServeProviderIcons.swift"), encoding: .utf8)
         #expect(cli.contains("\"ProviderIcon-devin\": \"\(Data(svg.utf8).base64EncodedString())\""))
+
+        ProviderBrandIcon.resetCacheForTesting()
+        defer { ProviderBrandIcon.resetCacheForTesting() }
+        let image = try #require(ProviderBrandIcon.image(for: .devin))
+        #expect(image.size == NSSize(width: 18, height: 18))
+        #expect(image.isTemplate)
+
+        if let proofDir = ProcessInfo.processInfo.environment["CODEXBAR_DEVIN_ICON_PROOF_DIR"] {
+            let output = URL(filePath: proofDir, directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            let proof = NSImage(size: NSSize(width: 512, height: 160), flipped: false) { _ in
+                let faces: [(NSColor, NSColor, String)] = [
+                    (NSColor(srgbRed: 0.953, green: 0.957, blue: 0.945, alpha: 1), .black, "Light 18pt"),
+                    (NSColor(srgbRed: 0.071, green: 0.082, blue: 0.075, alpha: 1), .white, "Dark 18pt"),
+                ]
+                for (index, face) in faces.enumerated() {
+                    let tile = NSRect(x: CGFloat(index) * 256, y: 0, width: 256, height: 160)
+                    face.0.setFill()
+                    tile.fill()
+                    let iconRect = NSRect(x: tile.minX + 28, y: tile.midY - 9, width: 18, height: 18)
+                    let glyph = NSImage(size: iconRect.size, flipped: false) { rect in
+                        image.draw(in: rect)
+                        face.1.setFill()
+                        rect.fill(using: .sourceAtop)
+                        return true
+                    }
+                    glyph.draw(in: iconRect)
+                    let label = "Devin · \(face.2)" as NSString
+                    label.draw(
+                        at: NSPoint(x: iconRect.maxX + 10, y: tile.midY - 8),
+                        withAttributes: [
+                            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+                            .foregroundColor: face.1,
+                        ])
+                }
+                return true
+            }
+            let data = try #require(proof.tiffRepresentation)
+            let bitmap = try #require(NSBitmapImageRep(data: data))
+            try #require(bitmap.representation(using: .png, properties: [:]))
+                .write(to: output.appending(path: "native-18pt-light-dark.png"))
+        }
     }
 
     @Test
