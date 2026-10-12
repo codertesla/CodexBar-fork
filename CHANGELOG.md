@@ -2,6 +2,10 @@
 
 ## 0.74.2 — Unreleased
 
+### Fixed
+
+- Devin: use the official hexagonal product mark across the app, website, and HTTP dashboard. Thanks @codertesla!
+
 ## 0.74.1 — 2026-10-11
 
 ### Added
