@@ -37,7 +37,7 @@ public enum GeminiWebUsageError: LocalizedError, Sendable, Equatable {
 /// Usage limits shown on https://gemini.google.com/usage (the Gemini app's 5-hour and weekly windows).
 public struct GeminiWebUsageSnapshot: Sendable, Equatable {
     public struct Window: Sendable, Equatable {
-        /// 0...100, as reported by Gemini (`percentageUsed` is already a percentage).
+        /// 0...100. Gemini reports `percentageUsed` as a 0...1 fraction; the usage page multiplies it by 100.
         public let usedPercent: Double
         public let resetsAt: Date?
     }
@@ -179,7 +179,7 @@ public enum GeminiWebUsageParser {
     private static func window(from pool: Pool) -> GeminiWebUsageSnapshot.Window? {
         guard let percentageUsed = pool.percentageUsed, percentageUsed >= 0 else { return nil }
         return GeminiWebUsageSnapshot.Window(
-            usedPercent: min(percentageUsed, 100),
+            usedPercent: min(percentageUsed * 100, 100),
             resetsAt: pool.gxu?.windowRefreshesAt.flatMap(Self.parseDate))
     }
 

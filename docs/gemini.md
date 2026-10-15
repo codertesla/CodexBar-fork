@@ -23,7 +23,7 @@ one path without fallback.
      with `query_signature=<UsagePageQuery persisted ID>` and `variables=<JSON>`. Queries are GET-only and need no
      XSRF token; the response is an XSSI-prefixed (`)]}'`) JSON array of GraphQL execution results.
    - Mapping: `viewer.rpcs.getUsageInfo.pools[]` → `GXU_FIVE_HOURLY` primary (300 min) and `GXU_WEEKLY` secondary
-     (10080 min). `percentageUsed` is already 0–100; `gxu.windowRefreshesAt` (ISO 8601) is the reset.
+     (10080 min). `percentageUsed` is a 0–1 fraction (the page shows `Math.round(percentageUsed * 100)`); `gxu.windowRefreshesAt` (ISO 8601) is the reset.
      `subscriptionTier` `TIER1` is labeled Pro. Errors for unrelated fields in the same query (upsell banners) are
      ignored when usage is present. `viewer: null` means the session is signed out.
    - Cookies: Google session cookies for `.google.com` / `gemini.google.com` (requires `__Secure-1PSID`,

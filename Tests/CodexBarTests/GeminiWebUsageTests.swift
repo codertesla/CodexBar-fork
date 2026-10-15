@@ -19,7 +19,7 @@ struct GeminiWebUsageTests {
                 },
                 {
                   "poolType": "GXU_WEEKLY",
-                  "percentageUsed": 37.5,
+                  "percentageUsed": 0.375,
                   "gxu": { "windowRefreshesAt": "2026-10-21T04:43:53.558273Z" }
                 }
               ],
@@ -40,7 +40,7 @@ struct GeminiWebUsageTests {
         let snapshot = try GeminiWebUsageParser.parse(data: Data(Self.usageResponse.utf8), now: now)
 
         #expect(snapshot.subscriptionTier == "TIER1")
-        #expect(snapshot.fiveHour?.usedPercent == 0.24)
+        #expect(snapshot.fiveHour?.usedPercent == 24)
         #expect(snapshot.weekly?.usedPercent == 37.5)
         #expect(snapshot.updatedAt == now)
 
@@ -51,11 +51,24 @@ struct GeminiWebUsageTests {
     }
 
     @Test
+    func `percentage used is a fraction that the usage page multiplies by one hundred`() throws {
+        // Live page showed "71% used" / "4% used" for these values.
+        let body = """
+        [{"data":{"viewer":{"rpcs":{"getUsageInfo":{"pools":[\
+        {"poolType":"GXU_FIVE_HOURLY","percentageUsed":0.71,"gxu":{"windowRefreshesAt":"2026-10-15T05:43:53Z"}},\
+        {"poolType":"GXU_WEEKLY","percentageUsed":1.2,"gxu":{"windowRefreshesAt":"2026-10-21T04:43:53Z"}}]}}}}}]
+        """
+        let snapshot = try GeminiWebUsageParser.parse(data: Data(body.utf8))
+        #expect(abs((snapshot.fiveHour?.usedPercent ?? 0) - 71) < 0.0001)
+        #expect(snapshot.weekly?.usedPercent == 100)
+    }
+
+    @Test
     func `maps web snapshot to five hour primary and weekly secondary windows`() throws {
         let snapshot = try GeminiWebUsageParser.parse(data: Data(Self.usageResponse.utf8))
         let usage = snapshot.toUsageSnapshot()
 
-        #expect(usage.primary?.usedPercent == 0.24)
+        #expect(usage.primary?.usedPercent == 24)
         #expect(usage.primary?.windowMinutes == 300)
         #expect(usage.secondary?.usedPercent == 37.5)
         #expect(usage.secondary?.windowMinutes == 10080)
