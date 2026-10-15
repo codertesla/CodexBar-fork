@@ -77,7 +77,7 @@ complete when the available scan window covers fewer days.
 | OpenAI | Admin API key (`api`) for organization spend/usage; legacy API-key balance fallback. |
 | Azure OpenAI | API key + endpoint + deployment probe (`api`) for deployment status validation. |
 | Claude | Admin API key (`api`) when configured; otherwise App Auto: OAuth API (`oauth`) → CLI PTY (`claude`) → Web API (`web`). CLI Auto: Web API (`web`) → CLI PTY (`claude`). |
-| Gemini | OAuth-backed API via Gemini CLI credentials (`api`). |
+| Gemini | Gemini app usage limits via gemini.google.com browser cookies (`web`); OAuth-backed API via Gemini CLI credentials (`api`). |
 | Antigravity | Local LSP/HTTP probe (`local`). |
 | Cursor | Web API via cookies → legacy stored session → Cursor.app local auth (`web`). |
 | OpenCode | Web dashboard via cookies (`web`). |
@@ -277,6 +277,7 @@ complete when the available scan window covers fewer days.
 - Details: `docs/kilo.md`.
 
 ## Gemini
+- Gemini app usage limits (5-hour + weekly) from gemini.google.com's `UsagePageQuery` GraphQL query (browser cookies).
 - OAuth-backed quota API (`retrieveUserQuota`) using Gemini CLI credentials.
 - Token refresh via Google OAuth if expired.
 - Tier detection via `loadCodeAssist`.

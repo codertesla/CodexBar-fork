@@ -47,6 +47,9 @@ public enum GeminiProviderDescriptor {
                 supportsTokenCost: false,
                 noDataMessage: { "Gemini cost summary is not supported." }),
             presentation: ProviderUsagePresentation(
+                rateWindowLabeler: { metadata, snapshot, _ in
+                    Self.rateWindowLabels(metadata: metadata, snapshot: snapshot)
+                },
                 identityPresenter: { provider, snapshot in
                     guard let plan = snapshot.loginMethod(for: provider), !plan.isEmpty else {
                         return ProviderIdentityPresentation(badge: nil, plan: nil)
@@ -56,12 +59,105 @@ public enum GeminiProviderDescriptor {
                 },
                 iconDecorations: [.gemini]),
             fetchPlan: ProviderFetchPlan(
-                sourceModes: [.auto, .api],
-                pipeline: ProviderFetchPipeline(resolveStrategies: { _ in [GeminiStatusFetchStrategy()] })),
+                sourceModes: [.auto, .web, .api],
+                pipeline: ProviderFetchPipeline(resolveStrategies: { context in
+                    Self.resolveStrategies(sourceMode: context.sourceMode)
+                })),
             cli: ProviderCLIConfig(
                 name: "gemini",
                 binaryLocator: { BinaryLocator.resolveGeminiBinary(env: $0) },
                 versionDetector: { _ in ProviderVersionDetector.geminiVersion() }))
+    }
+
+    /// Auto prefers the Gemini app's web usage limits (5-hour and weekly windows), then falls back to the
+    /// Gemini CLI OAuth quota API that Workspace, education, and Code Assist accounts still use.
+    static func resolveStrategies(sourceMode: ProviderSourceMode) -> [any ProviderFetchStrategy] {
+        switch sourceMode {
+        case .auto:
+            [GeminiWebFetchStrategy(), GeminiStatusFetchStrategy()]
+        case .web:
+            [GeminiWebFetchStrategy()]
+        case .api, .oauth:
+            [GeminiStatusFetchStrategy()]
+        case .cli:
+            []
+        }
+    }
+
+    /// Web snapshots carry 5-hour/weekly windows; CLI OAuth snapshots keep the per-model-tier labels.
+    static func rateWindowLabels(metadata: ProviderMetadata, snapshot: UsageSnapshot) -> ProviderRateWindowLabels {
+        let isWebSnapshot = snapshot.primary?.windowMinutes == GeminiWebUsageSnapshot.fiveHourWindowMinutes
+            || snapshot.secondary?.windowMinutes == GeminiWebUsageSnapshot.weeklyWindowMinutes
+        if isWebSnapshot {
+            return ProviderRateWindowLabels(
+                primary: "5-hour",
+                secondary: "Weekly",
+                tertiary: metadata.opusLabel ?? "",
+                showsTertiary: false)
+        }
+        return ProviderRateWindowLabels(
+            primary: metadata.sessionLabel,
+            secondary: metadata.weeklyLabel,
+            tertiary: metadata.opusLabel ?? "",
+            showsTertiary: metadata.supportsOpus)
+    }
+}
+
+struct GeminiWebFetchStrategy: ProviderFetchStrategy {
+    static let sourceLabel = "web"
+
+    let id: String = "gemini.web"
+    let kind: ProviderFetchKind = .web
+
+    func isAvailable(_: ProviderFetchContext) async -> Bool {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }
+
+    func fetch(_ context: ProviderFetchContext) async throws -> ProviderFetchResult {
+        #if os(macOS)
+        let logger: ((String) -> Void)? = context.verbose
+            ? { message in CodexBarLog.logger(LogCategories.provider(.gemini)).verbose(message) }
+            : nil
+        let fetcher = GeminiWebUsageFetcher(timeout: context.webTimeout)
+
+        if let cached = CookieHeaderCache.load(provider: .gemini) {
+            do {
+                let snapshot = try await fetcher.fetch(cookieHeader: cached.cookieHeader)
+                return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
+            } catch GeminiWebUsageError.notLoggedIn {
+                _ = CookieHeaderCache.clearIfCurrent(provider: .gemini, expected: cached)
+            }
+        }
+
+        var lastError: Error = GeminiWebUsageError.noSessionCookie
+        for session in try GeminiWebCookieImporter.importSessions(
+            browserDetection: context.browserDetection,
+            logger: logger)
+        {
+            do {
+                let snapshot = try await fetcher.fetch(cookieHeader: session.cookieHeader)
+                CookieHeaderCache.store(
+                    provider: .gemini,
+                    cookieHeader: session.cookieHeader,
+                    sourceLabel: session.sourceLabel)
+                return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
+            } catch GeminiWebUsageError.notLoggedIn {
+                // Another browser profile may still hold a live Google session.
+                lastError = GeminiWebUsageError.notLoggedIn
+            }
+        }
+        throw lastError
+        #else
+        throw GeminiWebUsageError.noSessionCookie
+        #endif
+    }
+
+    func shouldFallback(on _: Error, context: ProviderFetchContext) -> Bool {
+        context.sourceMode == .auto
     }
 }
 

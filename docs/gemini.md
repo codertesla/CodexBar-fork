@@ -1,5 +1,5 @@
 ---
-summary: "Gemini provider data sources: OAuth-backed quota APIs, token refresh, and tier detection."
+summary: "Gemini provider data sources: web usage limits, OAuth quota APIs, token refresh, and tier detection."
 read_when:
   - Debugging Gemini quota fetch or auth issues
   - Updating Gemini CLI OAuth integration
@@ -8,11 +8,31 @@ read_when:
 
 # Gemini provider
 
-Gemini uses the Gemini CLI OAuth credentials and private quota APIs. No browser cookies.
+Gemini reads the Gemini app's usage limits from a signed-in gemini.google.com browser session, then falls back to
+the Gemini CLI OAuth credentials and private quota APIs.
 
 ## Data sources + fallback order
 
-1) **OAuth-backed quota API** (only path used in `fetch()`)
+Auto tries the web source first and falls back to OAuth on any web failure. `--source web` and `--source api` select
+one path without fallback.
+
+0) **Gemini app usage limits (web, macOS)**
+   - The same data as https://gemini.google.com/usage and the Gemini desktop app's Usage limits page: a 5-hour
+     window and a weekly window, shared by every model the account can use in the Gemini app.
+   - Request: `GET https://gemini.google.com/_/BardChatUi/graphql/schemas/GEMINI_WEB_GRAPHQL/executeQuery`
+     with `query_signature=<UsagePageQuery persisted ID>` and `variables=<JSON>`. Queries are GET-only and need no
+     XSRF token; the response is an XSSI-prefixed (`)]}'`) JSON array of GraphQL execution results.
+   - Mapping: `viewer.rpcs.getUsageInfo.pools[]` → `GXU_FIVE_HOURLY` primary (300 min) and `GXU_WEEKLY` secondary
+     (10080 min). `percentageUsed` is already 0–100; `gxu.windowRefreshesAt` (ISO 8601) is the reset.
+     `subscriptionTier` `TIER1` is labeled Pro. Errors for unrelated fields in the same query (upsell banners) are
+     ignored when usage is present. `viewer: null` means the session is signed out.
+   - Cookies: Google session cookies for `.google.com` / `gemini.google.com` (requires `__Secure-1PSID`,
+     `__Secure-3PSID`, or `SID`), imported through the shared browser order and `BrowserCookieAccessGate`, then
+     cached in the cookie header cache. A signed-out cached header is cleared and browsers are re-read.
+   - The persisted query ID comes from the gemini.google.com `UsagePageSurface` bundle. If Google rotates it, the
+     endpoint answers with a validation error and Auto falls back to OAuth.
+
+1) **OAuth-backed quota API**
    - Reads auth type from `~/.gemini/settings.json`.
    - Supported: `oauth-personal` (or unknown → try OAuth creds).
    - Unsupported: `api-key`, `vertex-ai` (hard error).
