@@ -29,6 +29,16 @@ one path without fallback.
    - Cookies: Google session cookies for `.google.com` / `gemini.google.com` (requires `__Secure-1PSID`,
      `__Secure-3PSID`, or `SID`), imported through the shared browser order and `BrowserCookieAccessGate`, then
      cached in the cookie header cache. A signed-out cached header is cleared and browsers are re-read.
+   - Settings → Providers → Gemini → Cookie source (Automatic / Manual / Off):
+     - Automatic: the first browser profile in import order with a working Google session wins. People signed in
+       to different Google accounts in several browsers or profiles should pin one with **Browser** and
+       **Browser profile** (config: `browserID`, `browserProfileID`). A pinned profile is read on every refresh,
+       never cached, and never falls back to another profile, so another account's usage cannot be shown.
+       `browserID` alone restricts discovery to that browser.
+     - Manual: paste a `Cookie:` header from gemini.google.com (config: `cookieHeader`).
+     - Off: skips the web source; Auto continues with OAuth.
+   - The Gemini desktop app keeps its own OAuth session in a Google-only Keychain access group, so CodexBar cannot
+     reuse it. Pin the browser profile signed in to the same account instead.
    - The persisted query ID comes from the gemini.google.com `UsagePageSurface` bundle. If Google rotates it, the
      endpoint answers with a validation error and Auto falls back to OAuth.
 

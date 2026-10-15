@@ -184,6 +184,57 @@ struct GeminiWebUsageTests {
     }
 
     @Test
+    func `browser records keep only cookies sent to gemini`() throws {
+        let records = try [
+            Self.cookie(name: "__Secure-1PSID", domain: ".google.com"),
+            Self.cookie(name: "ACCOUNT_CHOOSER", domain: "accounts.google.com"),
+        ].map(ProviderPluginCookieRecord.init(cookie:))
+        let header = try #require(GeminiWebCookieHeader.header(from: records))
+        #expect(header == "__Secure-1PSID=v")
+    }
+
+    @Test
+    func `manual cookie header accepts a pasted header with a google sign in cookie`() {
+        #expect(GeminiWebCookieHeader.manualHeader("Cookie: NID=n; __Secure-1PSID=s") == "NID=n; __Secure-1PSID=s")
+        #expect(GeminiWebCookieHeader.manualHeader("NID=n") == nil)
+        #expect(GeminiWebCookieHeader.manualHeader(nil) == nil)
+    }
+
+    @Test
+    func `browser pin is optional and narrows to one profile when set`() {
+        #expect(GeminiWebCookieSettings.selectedBrowser(in: nil) == nil)
+
+        var config = ProviderConfig(id: .gemini)
+        #expect(GeminiWebCookieSettings.selectedBrowser(in: config) == nil)
+
+        config.browserID = "chromeCanary"
+        #expect(GeminiWebCookieSettings.selectedBrowser(in: config)
+            == ProviderBrowserProfile(browserID: "chromeCanary", profileID: ""))
+
+        config.browserProfileID = "Profile 3"
+        let settings = GeminiWebCookieSettings.settings(cookieSettings: CookieProviderSettings(), config: config)
+        #expect(settings.selectedBrowserProfile
+            == ProviderBrowserProfile(browserID: "chromeCanary", profileID: "Profile 3"))
+        #expect(settings.cookieSource == .auto)
+    }
+
+    @Test
+    func `gemini settings section resolves cookie source and browser pin from config`() throws {
+        var config = ProviderConfig(id: .gemini)
+        config.cookieSource = .manual
+        config.cookieHeader = "__Secure-1PSID=synthetic"
+        config.browserID = "chromeCanary"
+        let contribution = try #require(GeminiProviderDescriptor.descriptor.settingsSection.credentialContribution(
+            context: ProviderCredentialSettingsContext(config: config, account: nil)))
+        var builder = ProviderSettingsSnapshotBuilder()
+        builder.apply(contribution)
+        let settings = try #require(builder.build().gemini)
+        #expect(settings.cookieSource == .manual)
+        #expect(settings.manualCookieHeader == "__Secure-1PSID=synthetic")
+        #expect(settings.selectedBrowserProfile?.browserID == "chromeCanary")
+    }
+
+    @Test
     func `auto mode tries web usage before Gemini CLI OAuth`() {
         let auto = GeminiProviderDescriptor.resolveStrategies(sourceMode: .auto).map(\.id)
         #expect(auto == ["gemini.web", "gemini.api"])

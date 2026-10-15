@@ -8,6 +8,7 @@ public enum GeminiProviderDescriptor {
             id: .gemini,
             menuBarMetrics: ProviderMenuBarMetricCapabilities(
                 supported: [.automatic, .primary, .secondary, .average]),
+            settingsSection: GeminiWebCookieSettings.sectionRegistration,
             metadata: ProviderMetadata(
                 id: .gemini,
                 displayName: "Gemini",
@@ -110,22 +111,34 @@ struct GeminiWebFetchStrategy: ProviderFetchStrategy {
     let id: String = "gemini.web"
     let kind: ProviderFetchKind = .web
 
-    func isAvailable(_: ProviderFetchContext) async -> Bool {
+    func isAvailable(_ context: ProviderFetchContext) async -> Bool {
         #if os(macOS)
-        true
+        context.settings?.gemini?.cookieSource != .off
         #else
-        false
+        context.settings?.gemini?.cookieSource == .manual
         #endif
     }
 
     func fetch(_ context: ProviderFetchContext) async throws -> ProviderFetchResult {
+        let settings = context.settings?.gemini ?? CookieProviderSettings()
+        let fetcher = GeminiWebUsageFetcher(timeout: context.webTimeout)
+
+        if settings.cookieSource == .manual {
+            guard let header = GeminiWebCookieHeader.manualHeader(settings.manualCookieHeader) else {
+                throw GeminiWebUsageError.noSessionCookie
+            }
+            let snapshot = try await fetcher.fetch(cookieHeader: header)
+            return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
+        }
+
         #if os(macOS)
         let logger: ((String) -> Void)? = context.verbose
             ? { message in CodexBarLog.logger(LogCategories.provider(.gemini)).verbose(message) }
             : nil
-        let fetcher = GeminiWebUsageFetcher(timeout: context.webTimeout)
+        let selection = settings.selectedBrowserProfile
 
-        if let cached = CookieHeaderCache.load(provider: .gemini) {
+        // The cache is not keyed by profile, so a pinned profile always reads its own store.
+        if selection == nil, let cached = CookieHeaderCache.load(provider: .gemini) {
             do {
                 let snapshot = try await fetcher.fetch(cookieHeader: cached.cookieHeader)
                 return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
@@ -137,14 +150,20 @@ struct GeminiWebFetchStrategy: ProviderFetchStrategy {
         var lastError: Error = GeminiWebUsageError.noSessionCookie
         for session in try GeminiWebCookieImporter.importSessions(
             browserDetection: context.browserDetection,
+            selection: selection,
             logger: logger)
         {
             do {
                 let snapshot = try await fetcher.fetch(cookieHeader: session.cookieHeader)
-                CookieHeaderCache.store(
-                    provider: .gemini,
-                    cookieHeader: session.cookieHeader,
-                    sourceLabel: session.sourceLabel)
+                if selection == nil {
+                    CookieHeaderCache.store(
+                        provider: .gemini,
+                        cookieHeader: session.cookieHeader,
+                        sourceLabel: session.sourceLabel)
+                } else {
+                    // Lets `codexbar cookie refresh` report success without caching a pinned profile's cookies.
+                    CookieHeaderCache.markNonpersistentRefreshValidated(provider: .gemini)
+                }
                 return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
             } catch GeminiWebUsageError.notLoggedIn {
                 // Another browser profile may still hold a live Google session.
