@@ -71,12 +71,13 @@ public enum GeminiProviderDescriptor {
                 versionDetector: { _ in ProviderVersionDetector.geminiVersion() }))
     }
 
-    /// Auto prefers the Gemini app's web usage limits (5-hour and weekly windows), then falls back to the
-    /// Gemini CLI OAuth quota API that Workspace, education, and Code Assist accounts still use.
+    /// Auto keeps the Gemini CLI OAuth quota API first, so a working CLI account (Workspace, education, Code
+    /// Assist) is never replaced by whichever Google account a browser holds. Only when OAuth fails, as it does
+    /// for consumer AI Pro/Ultra accounts after the CLI shutdown, does Auto read the Gemini app's web limits.
     static func resolveStrategies(sourceMode: ProviderSourceMode) -> [any ProviderFetchStrategy] {
         switch sourceMode {
         case .auto:
-            [GeminiWebFetchStrategy(), GeminiStatusFetchStrategy()]
+            [GeminiStatusFetchStrategy(), GeminiWebFetchStrategy()]
         case .web:
             [GeminiWebFetchStrategy()]
         case .api, .oauth:
@@ -137,40 +138,38 @@ struct GeminiWebFetchStrategy: ProviderFetchStrategy {
             : nil
         let selection = settings.selectedBrowserProfile
 
+        // Observe before any network work so a late success cannot overwrite a session committed meanwhile.
+        var observation = CookieHeaderCache.observeForConditionalMutation(provider: .gemini)
         // The cache is not keyed by profile, so a pinned profile always reads its own store.
-        if selection == nil, let cached = CookieHeaderCache.load(provider: .gemini) {
+        if selection == nil, let cached = observation.entry {
             do {
                 let snapshot = try await fetcher.fetch(cookieHeader: cached.cookieHeader)
                 return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
             } catch GeminiWebUsageError.notLoggedIn {
-                _ = CookieHeaderCache.clearIfCurrent(provider: .gemini, expected: cached)
+                if CookieHeaderCache.clearIfCurrent(provider: .gemini, expected: cached) {
+                    observation = observation.afterOwnedClear()
+                }
             }
         }
 
-        var lastError: Error = GeminiWebUsageError.noSessionCookie
-        for session in try GeminiWebCookieImporter.importSessions(
+        let sessions = try GeminiWebCookieImporter.importSessions(
             browserDetection: context.browserDetection,
             selection: selection,
             logger: logger)
-        {
-            do {
-                let snapshot = try await fetcher.fetch(cookieHeader: session.cookieHeader)
-                if selection == nil {
-                    CookieHeaderCache.store(
-                        provider: .gemini,
-                        cookieHeader: session.cookieHeader,
-                        sourceLabel: session.sourceLabel)
-                } else {
-                    // Lets `codexbar cookie refresh` report success without caching a pinned profile's cookies.
-                    CookieHeaderCache.markNonpersistentRefreshValidated(provider: .gemini)
-                }
-                return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
-            } catch GeminiWebUsageError.notLoggedIn {
-                // Another browser profile may still hold a live Google session.
-                lastError = GeminiWebUsageError.notLoggedIn
-            }
+        let (snapshot, session) = try await Self.firstUsableSession(sessions, cookieHeader: \.cookieHeader) {
+            try await fetcher.fetch(cookieHeader: $0)
         }
-        throw lastError
+        if selection == nil {
+            CookieHeaderCache.storeIfObservationCurrent(
+                provider: .gemini,
+                expected: observation,
+                cookieHeader: session.cookieHeader,
+                sourceLabel: session.sourceLabel)
+        } else {
+            // Lets `codexbar cookie refresh` report success without caching a pinned profile's cookies.
+            CookieHeaderCache.markNonpersistentRefreshValidated(provider: .gemini)
+        }
+        return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
         #else
         throw GeminiWebUsageError.noSessionCookie
         #endif
@@ -178,6 +177,24 @@ struct GeminiWebFetchStrategy: ProviderFetchStrategy {
 
     func shouldFallback(on _: Error, context: ProviderFetchContext) -> Bool {
         context.sourceMode == .auto
+    }
+
+    /// Tries browser sessions in order. Account-specific failures (signed out, no usage windows) move on to the
+    /// next profile; query rejections and transport failures stop, because every session would hit them.
+    static func firstUsableSession<Session: Sendable>(
+        _ sessions: some Sequence<Session>,
+        cookieHeader: (Session) -> String,
+        fetch: (String) async throws -> GeminiWebUsageSnapshot) async throws -> (GeminiWebUsageSnapshot, Session)
+    {
+        var lastError: Error = GeminiWebUsageError.noSessionCookie
+        for session in sessions {
+            do {
+                return try await (fetch(cookieHeader(session)), session)
+            } catch let error as GeminiWebUsageError where error.isAccountSpecific {
+                lastError = error
+            }
+        }
+        throw lastError
     }
 }
 
@@ -199,7 +216,7 @@ struct GeminiStatusFetchStrategy: ProviderFetchStrategy {
             sourceLabel: Self.sourceLabel)
     }
 
-    func shouldFallback(on _: Error, context _: ProviderFetchContext) -> Bool {
-        false
+    func shouldFallback(on _: Error, context: ProviderFetchContext) -> Bool {
+        context.sourceMode == .auto
     }
 }

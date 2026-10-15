@@ -12,6 +12,7 @@ import SweetCookieKit
 public enum GeminiWebUsageError: LocalizedError, Sendable, Equatable {
     case noSessionCookie
     case notLoggedIn
+    case noUsageWindows
     case usageUnavailable(String)
     case parseFailed(String)
     case networkError(String)
@@ -22,12 +23,25 @@ public enum GeminiWebUsageError: LocalizedError, Sendable, Equatable {
             "No Google session cookie found for gemini.google.com. Sign in to Gemini in your browser."
         case .notLoggedIn:
             "Gemini web session is not signed in or has expired. Open gemini.google.com and sign in again."
+        case .noUsageWindows:
+            "This Google account reports no Gemini app usage windows."
         case let .usageUnavailable(message):
             "Gemini usage limits are unavailable: \(message)"
         case let .parseFailed(message):
             "Could not parse Gemini usage limits: \(message)"
         case let .networkError(message):
             "Gemini usage request failed: \(message)"
+        }
+    }
+}
+
+extension GeminiWebUsageError {
+    /// True when the failure belongs to one browser session, so another profile may still succeed. Query
+    /// rejections and transport failures affect every session and stop profile traversal.
+    var isAccountSpecific: Bool {
+        switch self {
+        case .notLoggedIn, .noUsageWindows: true
+        case .noSessionCookie, .usageUnavailable, .parseFailed, .networkError: false
         }
     }
 }
@@ -166,7 +180,7 @@ public enum GeminiWebUsageParser {
         let fiveHour = pools.first { $0.poolType == "GXU_FIVE_HOURLY" }.flatMap(Self.window)
         let weekly = pools.first { $0.poolType == "GXU_WEEKLY" }.flatMap(Self.window)
         guard fiveHour != nil || weekly != nil else {
-            throw GeminiWebUsageError.usageUnavailable("No usage windows reported for this account.")
+            throw GeminiWebUsageError.noUsageWindows
         }
 
         return GeminiWebUsageSnapshot(

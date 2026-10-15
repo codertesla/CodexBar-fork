@@ -277,7 +277,7 @@ complete when the available scan window covers fewer days.
 - Details: `docs/kilo.md`.
 
 ## Gemini
-- Gemini app usage limits (5-hour + weekly) from gemini.google.com's `UsagePageQuery` GraphQL query (browser cookies).
+- Auto fallback when OAuth fails: Gemini app usage limits (5-hour + weekly) from gemini.google.com's `UsagePageQuery` GraphQL query (browser cookies).
 - OAuth-backed quota API (`retrieveUserQuota`) using Gemini CLI credentials.
 - Token refresh via Google OAuth if expired.
 - Tier detection via `loadCodeAssist`.

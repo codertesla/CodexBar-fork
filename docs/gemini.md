@@ -8,15 +8,19 @@ read_when:
 
 # Gemini provider
 
-Gemini reads the Gemini app's usage limits from a signed-in gemini.google.com browser session, then falls back to
-the Gemini CLI OAuth credentials and private quota APIs.
+Gemini uses the Gemini CLI OAuth credentials and private quota APIs. When those fail (consumer AI Pro/Ultra accounts
+after the Gemini CLI shutdown), it reads the Gemini app's usage limits from a signed-in gemini.google.com browser
+session.
 
 ## Data sources + fallback order
 
-Auto tries the web source first and falls back to OAuth on any web failure. `--source web` and `--source api` select
-one path without fallback.
+Auto keeps OAuth first and falls back to the web source on any OAuth failure, so a working CLI account (Workspace,
+education, Code Assist) is never replaced by a browser account. `--source web` and `--source api` select one path
+without fallback. Within the web source, profiles that are signed out or report no usage windows are skipped; query
+rejections and transport failures stop the traversal. Cached browser sessions are written with a conditional cache
+mutation, so a slow fetch cannot overwrite a session that another refresh committed meanwhile.
 
-0) **Gemini app usage limits (web, macOS)**
+- **Web fallback: Gemini app usage limits (macOS)**
    - The same data as https://gemini.google.com/usage and the Gemini desktop app's Usage limits page: a 5-hour
      window and a weekly window, shared by every model the account can use in the Gemini app.
    - Request: `GET https://gemini.google.com/_/BardChatUi/graphql/schemas/GEMINI_WEB_GRAPHQL/executeQuery`

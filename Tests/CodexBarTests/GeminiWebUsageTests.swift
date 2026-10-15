@@ -127,7 +127,7 @@ struct GeminiWebUsageTests {
     @Test
     func `missing pools is reported as unavailable usage`() {
         let body = #"[{"data":{"viewer":{"rpcs":{"getUsageInfo":{"subscriptionTier":"TIER1","pools":[]}}}}}]"#
-        #expect(throws: GeminiWebUsageError.usageUnavailable("No usage windows reported for this account.")) {
+        #expect(throws: GeminiWebUsageError.noUsageWindows) {
             try GeminiWebUsageParser.parse(data: Data(body.utf8))
         }
     }
@@ -262,9 +262,82 @@ struct GeminiWebUsageTests {
     }
 
     @Test
-    func `auto mode tries web usage before Gemini CLI OAuth`() {
+    func `profile traversal skips signed in accounts without usage windows`() async throws {
+        let usable = try GeminiWebUsageParser.parse(data: Data(Self.usageResponse.utf8))
+        let calls = CallLog()
+        let (snapshot, session) = try await GeminiWebFetchStrategy.firstUsableSession(
+            ["free-account", "signed-out", "pro-account"],
+            cookieHeader: { $0 })
+        { header in
+            await calls.append(header)
+            switch header {
+            case "free-account": throw GeminiWebUsageError.noUsageWindows
+            case "signed-out": throw GeminiWebUsageError.notLoggedIn
+            default: return usable
+            }
+        }
+        #expect(session == "pro-account")
+        #expect(snapshot == usable)
+        #expect(await calls.values == ["free-account", "signed-out", "pro-account"])
+    }
+
+    @Test
+    func `profile traversal stops on failures shared by every session`() async {
+        let calls = CallLog()
+        await #expect(throws: GeminiWebUsageError.usageUnavailable("rotated query")) {
+            _ = try await GeminiWebFetchStrategy.firstUsableSession(["a", "b"], cookieHeader: { $0 }) { header in
+                await calls.append(header)
+                throw GeminiWebUsageError.usageUnavailable("rotated query")
+            }
+        }
+        #expect(await calls.values == ["a"])
+    }
+
+    @Test
+    func `profile traversal reports the last account specific failure`() async {
+        await #expect(throws: GeminiWebUsageError.notLoggedIn) {
+            _ = try await GeminiWebFetchStrategy.firstUsableSession(["a"], cookieHeader: { $0 }) { _ in
+                throw GeminiWebUsageError.notLoggedIn
+            }
+        }
+        await #expect(throws: GeminiWebUsageError.noSessionCookie) {
+            _ = try await GeminiWebFetchStrategy.firstUsableSession([String](), cookieHeader: { $0 }) { _ in
+                throw GeminiWebUsageError.notLoggedIn
+            }
+        }
+    }
+
+    @Test
+    func `existing gemini configs keep their source and gain no browser pin after upgrade`() throws {
+        let legacy = #"""
+        {"version":1,"providers":[{"id":"gemini","enabled":true,"source":"api"},{"id":"codex","enabled":true}]}
+        """#
+        let config = try JSONDecoder().decode(CodexBarConfig.self, from: Data(legacy.utf8))
+        let gemini = try #require(config.providerConfig(for: .gemini))
+        #expect(gemini.source == .api)
+        #expect(gemini.browserID == nil)
+        #expect(GeminiProviderDescriptor.resolveStrategies(sourceMode: gemini.source ?? .auto).map(\.id)
+            == ["gemini.api"])
+
+        let contribution = try #require(GeminiProviderDescriptor.descriptor.settingsSection.credentialContribution(
+            context: ProviderCredentialSettingsContext(config: gemini, account: nil)))
+        var builder = ProviderSettingsSnapshotBuilder()
+        builder.apply(contribution)
+        let settings = try #require(builder.build().gemini)
+        #expect(settings.cookieSource == .auto)
+        #expect(settings.manualCookieHeader == nil)
+        #expect(settings.selectedBrowserProfile == nil)
+
+        let reencoded = try JSONDecoder().decode(
+            CodexBarConfig.self,
+            from: JSONEncoder().encode(config))
+        #expect(reencoded.providerConfig(for: .gemini)?.source == .api)
+    }
+
+    @Test
+    func `auto mode keeps Gemini CLI OAuth before web usage`() {
         let auto = GeminiProviderDescriptor.resolveStrategies(sourceMode: .auto).map(\.id)
-        #expect(auto == ["gemini.web", "gemini.api"])
+        #expect(auto == ["gemini.api", "gemini.web"])
         #expect(GeminiProviderDescriptor.resolveStrategies(sourceMode: .web).map(\.id) == ["gemini.web"])
         #expect(GeminiProviderDescriptor.resolveStrategies(sourceMode: .api).map(\.id) == ["gemini.api"])
     }
@@ -276,5 +349,13 @@ struct GeminiWebUsageTests {
             .domain: domain,
             .path: "/",
         ]))
+    }
+}
+
+private actor CallLog {
+    private(set) var values: [String] = []
+
+    func append(_ value: String) {
+        self.values.append(value)
     }
 }
