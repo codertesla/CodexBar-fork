@@ -267,7 +267,7 @@ struct GeminiWebUsageTests {
         let calls = CallLog()
         let (snapshot, session) = try await GeminiWebFetchStrategy.firstUsableSession(
             ["free-account", "signed-out", "pro-account"],
-            cookieHeader: { $0 })
+            cookieHeader: \.self)
         { header in
             await calls.append(header)
             switch header {
@@ -285,7 +285,7 @@ struct GeminiWebUsageTests {
     func `profile traversal stops on failures shared by every session`() async {
         let calls = CallLog()
         await #expect(throws: GeminiWebUsageError.usageUnavailable("rotated query")) {
-            _ = try await GeminiWebFetchStrategy.firstUsableSession(["a", "b"], cookieHeader: { $0 }) { header in
+            _ = try await GeminiWebFetchStrategy.firstUsableSession(["a", "b"], cookieHeader: \.self) { header in
                 await calls.append(header)
                 throw GeminiWebUsageError.usageUnavailable("rotated query")
             }
@@ -296,12 +296,12 @@ struct GeminiWebUsageTests {
     @Test
     func `profile traversal reports the last account specific failure`() async {
         await #expect(throws: GeminiWebUsageError.notLoggedIn) {
-            _ = try await GeminiWebFetchStrategy.firstUsableSession(["a"], cookieHeader: { $0 }) { _ in
+            _ = try await GeminiWebFetchStrategy.firstUsableSession(["a"], cookieHeader: \.self) { _ in
                 throw GeminiWebUsageError.notLoggedIn
             }
         }
         await #expect(throws: GeminiWebUsageError.noSessionCookie) {
-            _ = try await GeminiWebFetchStrategy.firstUsableSession([String](), cookieHeader: { $0 }) { _ in
+            _ = try await GeminiWebFetchStrategy.firstUsableSession([String](), cookieHeader: \.self) { _ in
                 throw GeminiWebUsageError.notLoggedIn
             }
         }
