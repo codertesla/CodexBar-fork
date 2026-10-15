@@ -63,6 +63,7 @@ struct GeminiProviderMigrationSettingsTests {
     @Test
     func `settings action appears when deprecation was observed`() {
         let settings = self.makeSettings()
+        settings.geminiCookieSource = .off
         let store = self.makeStore(settings: settings)
         store.observeGeminiConsumerTierDeprecation(from: GeminiStatusProbeError.consumerTierDeprecated)
 
@@ -73,6 +74,20 @@ struct GeminiProviderMigrationSettingsTests {
 
         #expect(actions.map(\.id) == ["gemini-antigravity-migration"])
         #expect(settings.isProviderEnabled(provider: .antigravity, metadata: antigravity) == wasEnabled)
+    }
+
+    @Test
+    func `settings action stays hidden while the gemini web source is enabled`() {
+        let settings = self.makeSettings()
+        let store = self.makeStore(settings: settings)
+        store.observeGeminiConsumerTierDeprecation(from: GeminiStatusProbeError.consumerTierDeprecated)
+
+        for source in [ProviderCookieSource.auto, .manual] {
+            settings.geminiCookieSource = source
+            let actions = GeminiProviderImplementation()
+                .settingsActions(context: self.makeContext(settings: settings, store: store))
+            #expect(actions.isEmpty)
+        }
     }
 
     @Test
@@ -124,6 +139,7 @@ struct GeminiProviderMigrationSettingsTests {
     @Test
     func `settings action appears when local antigravity handoff was observed`() {
         let settings = self.makeSettings()
+        settings.geminiCookieSource = .off
         let store = self.makeStore(settings: settings)
         store.observeGeminiConsumerTierDeprecation(
             from: GeminiStatusProbeError.oauthCredentialsUnavailableWithAntigravity)

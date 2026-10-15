@@ -248,6 +248,20 @@ struct GeminiWebUsageTests {
     }
 
     @Test
+    func `profile picker title uses the chromium display name from local state`() {
+        let root = "/Users/me/Library/Application Support/Google/Chrome Canary"
+        let localState = Data(#"{"profile":{"info_cache":{"Profile 19":{"name":"Work"}}}}"#.utf8)
+        let read: (URL) -> Data? = { url in url.path == root + "/Local State" ? localState : nil }
+
+        #expect(ProviderBrowserProfile.pickerTitle(
+            profileID: root + "/Profile 19", fallbackName: "Profile 19", readFile: read) == "Work (Profile 19)")
+        #expect(ProviderBrowserProfile.pickerTitle(
+            profileID: root + "/Profile 2", fallbackName: "Profile 2", readFile: read) == "Profile 2")
+        #expect(ProviderBrowserProfile.pickerTitle(
+            profileID: "safari.default", fallbackName: "Default", readFile: read) == "Default")
+    }
+
+    @Test
     func `auto mode tries web usage before Gemini CLI OAuth`() {
         let auto = GeminiProviderDescriptor.resolveStrategies(sourceMode: .auto).map(\.id)
         #expect(auto == ["gemini.web", "gemini.api"])

@@ -2631,3 +2631,6 @@
 "API credit" = "API クレジット";
 "Purchased credit" = "購入済みクレジット";
 "Claude Platform exposes Console credit balance and monthly spend, not local token cost history." = "Claude Platform は、ローカルのトークンコスト履歴ではなく、Console のクレジット残高と月間支出を表示します。";
+
+/* Gemini manual cookie source hint */
+"To read one browser profile, set Cookie source to Automatic." = "特定のブラウザプロファイルを読み取るには、Cookie ソースを自動に設定してください。";

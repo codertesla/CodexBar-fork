@@ -37,6 +37,9 @@ one path without fallback.
        `browserID` alone restricts discovery to that browser.
      - Manual: paste a `Cookie:` header from gemini.google.com (config: `cookieHeader`).
      - Off: skips the web source; Auto continues with OAuth.
+   - Profile pickers show Chromium display names from the browser's `Local State` (for example `Work (Profile 3)`).
+   - The "Gemini CLI migration" settings action (enable Antigravity) only appears when the web cookie source is Off;
+     with the web source enabled the fix is a signed-in gemini.google.com session, not another provider.
    - The Gemini desktop app keeps its own OAuth session in a Google-only Keychain access group, so CodexBar cannot
      reuse it. Pin the browser profile signed in to the same account instead.
    - The persisted query ID comes from the gemini.google.com `UsagePageSurface` bundle. If Google rotates it, the

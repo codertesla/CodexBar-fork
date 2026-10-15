@@ -64,7 +64,8 @@ struct GeminiProviderImplementation: ProviderImplementation {
                 subtitles: {
                     .init(
                         auto: L("Automatic imports browser cookies."),
-                        manual: L("Paste a Cookie header or cURL capture from %@.", "gemini.google.com/usage"),
+                        manual: L("Paste a Cookie header or cURL capture from %@.", "gemini.google.com/usage")
+                            + " " + L("To read one browser profile, set Cookie source to Automatic."),
                         off: L("%@ cookies are disabled.", "Gemini"))
                 },
                 trailingText: {
@@ -156,7 +157,9 @@ struct GeminiProviderImplementation: ProviderImplementation {
         var seen = Set<String>()
         var options = [ProviderSettingsPickerOption(id: "", title: L("Automatic"))]
         options += profiles.filter { seen.insert($0.id).inserted }.map {
-            ProviderSettingsPickerOption(id: $0.id, title: $0.name)
+            ProviderSettingsPickerOption(
+                id: $0.id,
+                title: ProviderBrowserProfile.pickerTitle(profileID: $0.id, fallbackName: $0.name))
         }
         if let saved = context.settings.providerConfig(for: .gemini)?.browserProfileID,
            !saved.isEmpty, !seen.contains(saved)
@@ -189,8 +192,10 @@ struct GeminiProviderImplementation: ProviderImplementation {
             onChange: nil)
     }
 
+    /// The Antigravity hand-off only helps when the Gemini web source is off; otherwise the fix is a signed-in
+    /// gemini.google.com browser session, so a CLI OAuth fallback failure must not suggest switching providers.
     @MainActor
     private static func showsAntigravityMigrationAction(context: ProviderSettingsContext) -> Bool {
-        context.store.geminiObservedConsumerTierDeprecation
+        context.store.geminiObservedConsumerTierDeprecation && context.settings.geminiCookieSource == .off
     }
 }

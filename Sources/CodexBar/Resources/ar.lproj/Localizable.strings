@@ -2635,3 +2635,6 @@
 "API credit" = "رصيد API";
 "Purchased credit" = "رصيد مشترى";
 "Claude Platform exposes Console credit balance and monthly spend, not local token cost history." = "يعرض Claude Platform رصيد الائتمان في Console والإنفاق الشهري، وليس سجل تكلفة الرموز المحلي.";
+
+/* Gemini manual cookie source hint */
+"To read one browser profile, set Cookie source to Automatic." = "لقراءة ملف تعريف متصفح واحد، اضبط مصدر ملفات تعريف الارتباط على تلقائي.";
