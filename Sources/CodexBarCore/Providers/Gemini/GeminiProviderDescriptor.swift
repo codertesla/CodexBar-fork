@@ -28,6 +28,7 @@ public enum GeminiProviderDescriptor {
                 ],
                 debugLogUnavailableMessage: "Gemini debug log not yet implemented",
                 debugPane: ProviderDebugPaneCapabilities(errorSimulationOrder: 2),
+                browserCookieOrder: ProviderBrowserCookieDefaults.defaultImportOrder,
                 dashboardURL: "https://gemini.google.com",
                 changelogURL: "https://github.com/google-gemini/gemini-cli/releases",
                 statusPageURL: nil,
