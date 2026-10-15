@@ -42,12 +42,14 @@ mutation, so a slow fetch cannot overwrite a session that another refresh commit
      - Manual: paste a `Cookie:` header from gemini.google.com (config: `cookieHeader`).
      - Off: skips the web source; Auto continues with OAuth.
    - Profile pickers show Chromium display names from the browser's `Local State` (for example `Work (Profile 3)`).
-   - The "Gemini CLI migration" settings action (enable Antigravity) only appears when the web cookie source is Off;
-     with the web source enabled the fix is a signed-in gemini.google.com session, not another provider.
+   - The "Gemini CLI migration" settings action (enable Antigravity) only appears when the web source cannot run:
+     cookie source Off, or a config pinned to `source: api`. Otherwise the fix is a signed-in gemini.google.com
+     session, not another provider.
    - The Gemini desktop app keeps its own OAuth session in a Google-only Keychain access group, so CodexBar cannot
      reuse it. Pin the browser profile signed in to the same account instead.
    - The persisted query ID comes from the gemini.google.com `UsagePageSurface` bundle. If Google rotates it, the
-     endpoint answers with a validation error and Auto falls back to OAuth.
+     endpoint answers with a validation error, the web source reports usage as unavailable, and CodexBar needs an
+     updated query ID. Auto has already tried OAuth by then, so there is nothing further to fall back to.
 
 1) **OAuth-backed quota API**
    - Reads auth type from `~/.gemini/settings.json`.

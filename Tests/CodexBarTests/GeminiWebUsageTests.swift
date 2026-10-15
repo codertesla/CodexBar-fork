@@ -294,6 +294,26 @@ struct GeminiWebUsageTests {
     }
 
     @Test
+    func `cached session without usage windows lets discovery continue`() async throws {
+        let usable = try GeminiWebUsageParser.parse(data: Data(Self.usageResponse.utf8))
+        let lostSubscription = try await GeminiWebFetchStrategy.cachedSessionSnapshot("cached") { _ in
+            throw GeminiWebUsageError.noUsageWindows
+        }
+        #expect(lostSubscription == nil)
+        let signedOut = try await GeminiWebFetchStrategy.cachedSessionSnapshot("cached") { _ in
+            throw GeminiWebUsageError.notLoggedIn
+        }
+        #expect(signedOut == nil)
+        let cached = try await GeminiWebFetchStrategy.cachedSessionSnapshot("cached") { _ in usable }
+        #expect(cached == usable)
+        await #expect(throws: GeminiWebUsageError.usageUnavailable("rotated query")) {
+            _ = try await GeminiWebFetchStrategy.cachedSessionSnapshot("cached") { _ in
+                throw GeminiWebUsageError.usageUnavailable("rotated query")
+            }
+        }
+    }
+
+    @Test
     func `profile traversal reports the last account specific failure`() async {
         await #expect(throws: GeminiWebUsageError.notLoggedIn) {
             _ = try await GeminiWebFetchStrategy.firstUsableSession(["a"], cookieHeader: \.self) { _ in

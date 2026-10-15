@@ -91,6 +91,21 @@ struct GeminiProviderMigrationSettingsTests {
     }
 
     @Test
+    func `settings action appears for api only configs even with automatic cookies`() {
+        let settings = self.makeSettings()
+        settings.geminiCookieSource = .auto
+        settings.updateProviderConfig(provider: .gemini) { $0.source = .api }
+        let store = self.makeStore(settings: settings)
+        store.observeGeminiConsumerTierDeprecation(from: GeminiStatusProbeError.consumerTierDeprecated)
+
+        let actions = GeminiProviderImplementation()
+            .settingsActions(context: self.makeContext(settings: settings, store: store))
+
+        #expect(actions.map(\.id) == ["gemini-antigravity-migration"])
+        #expect(!GeminiProviderImplementation.webSourceIsEligible(settings: settings))
+    }
+
+    @Test
     func `google shutdown observation arms the login guard`() {
         let settings = self.makeSettings()
         let store = self.makeStore(settings: settings)

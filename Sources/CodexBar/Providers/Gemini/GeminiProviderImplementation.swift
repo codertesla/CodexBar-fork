@@ -192,10 +192,20 @@ struct GeminiProviderImplementation: ProviderImplementation {
             onChange: nil)
     }
 
-    /// The Antigravity hand-off only helps when the Gemini web source is off; otherwise the fix is a signed-in
+    /// The Antigravity hand-off only helps when the Gemini web source cannot run; otherwise the fix is a signed-in
     /// gemini.google.com browser session, so a CLI OAuth fallback failure must not suggest switching providers.
     @MainActor
     private static func showsAntigravityMigrationAction(context: ProviderSettingsContext) -> Bool {
-        context.store.geminiObservedConsumerTierDeprecation && context.settings.geminiCookieSource == .off
+        context.store.geminiObservedConsumerTierDeprecation && !self.webSourceIsEligible(settings: context.settings)
+    }
+
+    /// A config pinned to `source: api` (or `oauth`) never runs the web strategy, whatever its cookie source says.
+    @MainActor
+    static func webSourceIsEligible(settings: SettingsStore) -> Bool {
+        guard settings.geminiCookieSource != .off else { return false }
+        switch settings.providerConfig(for: .gemini)?.source {
+        case .api, .oauth: return false
+        default: return true
+        }
     }
 }

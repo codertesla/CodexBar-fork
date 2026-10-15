@@ -142,13 +142,14 @@ struct GeminiWebFetchStrategy: ProviderFetchStrategy {
         var observation = CookieHeaderCache.observeForConditionalMutation(provider: .gemini)
         // The cache is not keyed by profile, so a pinned profile always reads its own store.
         if selection == nil, let cached = observation.entry {
-            do {
-                let snapshot = try await fetcher.fetch(cookieHeader: cached.cookieHeader)
+            let cachedSnapshot = try await Self.cachedSessionSnapshot(cached.cookieHeader) {
+                try await fetcher.fetch(cookieHeader: $0)
+            }
+            if let snapshot = cachedSnapshot {
                 return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
-            } catch GeminiWebUsageError.notLoggedIn {
-                if CookieHeaderCache.clearIfCurrent(provider: .gemini, expected: cached) {
-                    observation = observation.afterOwnedClear()
-                }
+            }
+            if CookieHeaderCache.clearIfCurrent(provider: .gemini, expected: cached) {
+                observation = observation.afterOwnedClear()
             }
         }
 
@@ -177,6 +178,19 @@ struct GeminiWebFetchStrategy: ProviderFetchStrategy {
 
     func shouldFallback(on _: Error, context: ProviderFetchContext) -> Bool {
         context.sourceMode == .auto
+    }
+
+    /// Returns nil when the cached account signed out or lost its usage windows, so discovery can try other
+    /// profiles; failures every session would share still propagate.
+    static func cachedSessionSnapshot(
+        _ cookieHeader: String,
+        fetch: (String) async throws -> GeminiWebUsageSnapshot) async throws -> GeminiWebUsageSnapshot?
+    {
+        do {
+            return try await fetch(cookieHeader)
+        } catch let error as GeminiWebUsageError where error.isAccountSpecific {
+            return nil
+        }
     }
 
     /// Tries browser sessions in order. Account-specific failures (signed out, no usage windows) move on to the
