@@ -8,7 +8,7 @@ public enum GeminiProviderDescriptor {
             id: .gemini,
             menuBarMetrics: ProviderMenuBarMetricCapabilities(
                 supported: [.automatic, .primary, .secondary, .average]),
-            settingsSection: GeminiWebCookieSettings.sectionRegistration,
+            settingsSection: .init(GeminiProviderSettingsKey.self, cookieSettings: CookieProviderSettings.self),
             metadata: ProviderMetadata(
                 id: .gemini,
                 displayName: "Gemini",
@@ -50,7 +50,12 @@ public enum GeminiProviderDescriptor {
                 noDataMessage: { "Gemini cost summary is not supported." }),
             presentation: ProviderUsagePresentation(
                 rateWindowLabeler: { metadata, snapshot, _ in
-                    Self.rateWindowLabels(metadata: metadata, snapshot: snapshot)
+                    let isWeb = snapshot.primary?.windowMinutes == 300 || snapshot.secondary?.windowMinutes == 10080
+                    return ProviderRateWindowLabels(
+                        primary: isWeb ? "5-hour" : metadata.sessionLabel,
+                        secondary: isWeb ? "Weekly" : metadata.weeklyLabel,
+                        tertiary: metadata.opusLabel ?? "",
+                        showsTertiary: !isWeb && metadata.supportsOpus)
                 },
                 identityPresenter: { provider, snapshot in
                     guard let plan = snapshot.loginMethod(for: provider), !plan.isEmpty else {
@@ -61,155 +66,33 @@ public enum GeminiProviderDescriptor {
                 },
                 iconDecorations: [.gemini]),
             fetchPlan: ProviderFetchPlan(
-                sourceModes: [.auto, .web, .api],
+                sourceModes: [.auto, .api, .web],
                 pipeline: ProviderFetchPipeline(resolveStrategies: { context in
-                    Self.resolveStrategies(sourceMode: context.sourceMode)
+                    // App quotas belong to a browser account; never silently substitute them for CLI quotas.
+                    guard context.sourceMode == .web else { return [GeminiStatusFetchStrategy()] }
+                    return [ScriptFetchStrategy(
+                        id: "gemini.web",
+                        provider: .gemini,
+                        bundledPlugin: "gemini-web",
+                        sourceLabel: "Gemini app",
+                        kind: .web,
+                        timeout: context.webTimeout,
+                        resolveValues: { _ in .init() },
+                        isEnabled: { _ in true })]
                 })),
             cli: ProviderCLIConfig(
                 name: "gemini",
                 binaryLocator: { BinaryLocator.resolveGeminiBinary(env: $0) },
-                versionDetector: { _ in ProviderVersionDetector.geminiVersion() }))
-    }
-
-    /// Auto keeps the Gemini CLI OAuth quota API first, so a working CLI account (Workspace, education, Code
-    /// Assist) is never replaced by whichever Google account a browser holds. Only when OAuth fails, as it does
-    /// for consumer AI Pro/Ultra accounts after the CLI shutdown, does Auto read the Gemini app's web limits.
-    static func resolveStrategies(sourceMode: ProviderSourceMode) -> [any ProviderFetchStrategy] {
-        switch sourceMode {
-        case .auto:
-            [GeminiStatusFetchStrategy(), GeminiWebFetchStrategy()]
-        case .web:
-            [GeminiWebFetchStrategy()]
-        case .api, .oauth:
-            [GeminiStatusFetchStrategy()]
-        case .cli:
-            []
-        }
-    }
-
-    /// Web snapshots carry 5-hour/weekly windows; CLI OAuth snapshots keep the per-model-tier labels.
-    static func rateWindowLabels(metadata: ProviderMetadata, snapshot: UsageSnapshot) -> ProviderRateWindowLabels {
-        let isWebSnapshot = snapshot.primary?.windowMinutes == GeminiWebUsageSnapshot.fiveHourWindowMinutes
-            || snapshot.secondary?.windowMinutes == GeminiWebUsageSnapshot.weeklyWindowMinutes
-        if isWebSnapshot {
-            return ProviderRateWindowLabels(
-                primary: "5-hour",
-                secondary: "Weekly",
-                tertiary: metadata.opusLabel ?? "",
-                showsTertiary: false)
-        }
-        return ProviderRateWindowLabels(
-            primary: metadata.sessionLabel,
-            secondary: metadata.weeklyLabel,
-            tertiary: metadata.opusLabel ?? "",
-            showsTertiary: metadata.supportsOpus)
+                versionDetector: { _ in ProviderVersionDetector.geminiVersion() },
+                browserSupportExemption: { source, _, settings in
+                    source == .web && settings?[GeminiProviderSettingsKey.self]?.cookieSource == .manual
+                }))
     }
 }
 
-struct GeminiWebFetchStrategy: ProviderFetchStrategy {
-    static let sourceLabel = "web"
-
-    let id: String = "gemini.web"
-    let kind: ProviderFetchKind = .web
-
-    func isAvailable(_ context: ProviderFetchContext) async -> Bool {
-        #if os(macOS)
-        context.settings?.gemini?.cookieSource != .off
-        #else
-        context.settings?.gemini?.cookieSource == .manual
-        #endif
-    }
-
-    func fetch(_ context: ProviderFetchContext) async throws -> ProviderFetchResult {
-        let settings = context.settings?.gemini ?? CookieProviderSettings()
-        let fetcher = GeminiWebUsageFetcher(timeout: context.webTimeout)
-
-        if settings.cookieSource == .manual {
-            guard let header = GeminiWebCookieHeader.manualHeader(settings.manualCookieHeader) else {
-                throw GeminiWebUsageError.noSessionCookie
-            }
-            let snapshot = try await fetcher.fetch(cookieHeader: header)
-            return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
-        }
-
-        #if os(macOS)
-        let logger: ((String) -> Void)? = context.verbose
-            ? { message in CodexBarLog.logger(LogCategories.provider(.gemini)).verbose(message) }
-            : nil
-        let selection = settings.selectedBrowserProfile
-
-        // Observe before any network work so a late success cannot overwrite a session committed meanwhile.
-        var observation = CookieHeaderCache.observeForConditionalMutation(provider: .gemini)
-        // The cache is not keyed by profile, so a pinned profile always reads its own store.
-        if selection == nil, let cached = observation.entry {
-            let cachedSnapshot = try await Self.cachedSessionSnapshot(cached.cookieHeader) {
-                try await fetcher.fetch(cookieHeader: $0)
-            }
-            if let snapshot = cachedSnapshot {
-                return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
-            }
-            if CookieHeaderCache.clearIfCurrent(provider: .gemini, expected: cached) {
-                observation = observation.afterOwnedClear()
-            }
-        }
-
-        let sessions = try GeminiWebCookieImporter.importSessions(
-            browserDetection: context.browserDetection,
-            selection: selection,
-            logger: logger)
-        let (snapshot, session) = try await Self.firstUsableSession(sessions, cookieHeader: \.cookieHeader) {
-            try await fetcher.fetch(cookieHeader: $0)
-        }
-        if selection == nil {
-            CookieHeaderCache.storeIfObservationCurrent(
-                provider: .gemini,
-                expected: observation,
-                cookieHeader: session.cookieHeader,
-                sourceLabel: session.sourceLabel)
-        } else {
-            // Lets `codexbar cookie refresh` report success without caching a pinned profile's cookies.
-            CookieHeaderCache.markNonpersistentRefreshValidated(provider: .gemini)
-        }
-        return self.makeResult(usage: snapshot.toUsageSnapshot(), sourceLabel: Self.sourceLabel)
-        #else
-        throw GeminiWebUsageError.noSessionCookie
-        #endif
-    }
-
-    func shouldFallback(on _: Error, context: ProviderFetchContext) -> Bool {
-        context.sourceMode == .auto
-    }
-
-    /// Returns nil when the cached account signed out or lost its usage windows, so discovery can try other
-    /// profiles; failures every session would share still propagate.
-    static func cachedSessionSnapshot(
-        _ cookieHeader: String,
-        fetch: (String) async throws -> GeminiWebUsageSnapshot) async throws -> GeminiWebUsageSnapshot?
-    {
-        do {
-            return try await fetch(cookieHeader)
-        } catch let error as GeminiWebUsageError where error.isAccountSpecific {
-            return nil
-        }
-    }
-
-    /// Tries browser sessions in order. Account-specific failures (signed out, no usage windows) move on to the
-    /// next profile; query rejections and transport failures stop, because every session would hit them.
-    static func firstUsableSession<Session: Sendable>(
-        _ sessions: some Sequence<Session>,
-        cookieHeader: (Session) -> String,
-        fetch: (String) async throws -> GeminiWebUsageSnapshot) async throws -> (GeminiWebUsageSnapshot, Session)
-    {
-        var lastError: Error = GeminiWebUsageError.noSessionCookie
-        for session in sessions {
-            do {
-                return try await (fetch(cookieHeader(session)), session)
-            } catch let error as GeminiWebUsageError where error.isAccountSpecific {
-                lastError = error
-            }
-        }
-        throw lastError
-    }
+public enum GeminiProviderSettingsKey: ProviderSettingsSectionKey {
+    public static let providerID = ProviderInstanceID.gemini
+    public typealias Section = CookieProviderSettings
 }
 
 struct GeminiStatusFetchStrategy: ProviderFetchStrategy {
@@ -230,7 +113,7 @@ struct GeminiStatusFetchStrategy: ProviderFetchStrategy {
             sourceLabel: Self.sourceLabel)
     }
 
-    func shouldFallback(on _: Error, context: ProviderFetchContext) -> Bool {
-        context.sourceMode == .auto
+    func shouldFallback(on _: Error, context _: ProviderFetchContext) -> Bool {
+        false
     }
 }

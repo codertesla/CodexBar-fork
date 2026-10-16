@@ -163,26 +163,3 @@ extension ProviderSettingsSectionRegistration {
         #endif
     }
 }
-
-extension ProviderBrowserProfile {
-    /// Chromium names profile directories `Default`, `Profile 1`, …; the name people see in the browser lives in
-    /// the sibling `Local State` file. Returns `"<display name> (<directory>)"` when that name is known.
-    public static func pickerTitle(
-        profileID: String,
-        fallbackName: String,
-        readFile: (URL) -> Data? = { try? Data(contentsOf: $0) }) -> String
-    {
-        guard profileID.hasPrefix("/") else { return fallbackName }
-        let directory = URL(fileURLWithPath: profileID)
-        let localState = directory.deletingLastPathComponent().appendingPathComponent("Local State")
-        guard let data = readFile(localState),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let profile = root["profile"] as? [String: Any],
-              let cache = profile["info_cache"] as? [String: Any],
-              let entry = cache[directory.lastPathComponent] as? [String: Any],
-              let name = (entry["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !name.isEmpty, name != fallbackName
-        else { return fallbackName }
-        return "\(name) (\(directory.lastPathComponent))"
-    }
-}

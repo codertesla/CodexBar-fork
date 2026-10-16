@@ -741,12 +741,10 @@ struct MenuDescriptor {
                 weeklyLabel: metadata.weeklyLabel)
         } else if provider == .amp {
             AmpProviderDescriptor.secondaryLabel(snapshot: snapshot) ?? metadata.weeklyLabel
-        } else if provider == .gemini {
-            presentation.rateWindowLabels(metadata: metadata, snapshot: snapshot).secondary
         } else if provider == .alibabatokenplan {
             AlibabaTokenPlanProviderDescriptor.secondaryLabel(window: snapshot.secondary) ?? metadata.weeklyLabel
         } else {
-            metadata.weeklyLabel
+            presentation.rateWindowLabels(metadata: metadata, snapshot: snapshot).secondary
         }
         return (
             L(primaryLabel),

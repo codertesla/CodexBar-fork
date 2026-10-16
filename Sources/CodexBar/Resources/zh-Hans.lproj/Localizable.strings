@@ -1133,17 +1133,12 @@
 "CodexBar found another managed account that already uses the current system account. Resolve the duplicate account before switching." = "CodexBar 发现另一个托管账号已使用当前的系统账号。请先解决重复账号，再进行切换。";
 "CodexBar will ask macOS Keychain for “%@” so it can decrypt browser cookies and authenticate your account. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求“%@”，以解密浏览器 Cookie 并认证你的账号。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for the Claude Code OAuth token so it can fetch your Claude usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求 Claude Code OAuth token，以获取你的 Claude 用量。点击“确定”继续。";
-"CodexBar will ask macOS Keychain for your Amp cookie header so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 Amp Cookie 标头，以获取用量。点击“确定”继续。";
-"CodexBar will ask macOS Keychain for your Augment cookie header so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 Augment Cookie 标头，以获取用量。点击“确定”继续。";
+"CodexBar will ask macOS Keychain for your %@ cookie header so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 %@ Cookie 标头，以获取用量。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for your Claude cookie header so it can fetch Claude web usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 Claude Cookie 标头，以获取 Claude 网页用量。点击“确定”继续。";
-"CodexBar will ask macOS Keychain for your Cursor cookie header so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 Cursor Cookie 标头，以获取用量。点击“确定”继续。";
-"CodexBar will ask macOS Keychain for your Factory cookie header so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 Factory Cookie 标头，以获取用量。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for your GitHub Copilot token so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 GitHub Copilot token，以获取用量。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for your Kimi auth token so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 Kimi 认证 token，以获取用量。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for your MiniMax API token so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 MiniMax API token，以获取用量。点击“确定”继续。";
-"CodexBar will ask macOS Keychain for your MiniMax cookie header so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 MiniMax Cookie 标头，以获取用量。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for your OpenAI cookie header so it can fetch Codex dashboard extras. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 OpenAI Cookie 标头，以获取 Codex 仪表盘额外数据。点击“确定”继续。";
-"CodexBar will ask macOS Keychain for your OpenCode cookie header so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 OpenCode Cookie 标头，以获取用量。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for your Synthetic API key so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 Synthetic API 密钥，以获取用量。点击“确定”继续。";
 "CodexBar will ask macOS Keychain for your z.ai API token so it can fetch usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求你的 z.ai API token，以获取用量。点击“确定”继续。";
 "Could not open Cursor login in your browser." = "无法在浏览器中打开 Cursor 登录。";
@@ -1439,6 +1434,8 @@
 "menu_bar_layout_size" = "大小";
 "menu_bar_layout_size_small" = "小";
 "menu_bar_layout_size_regular" = "常规";
+"menu_bar_layout_size_large" = "大";
+"menu_bar_layout_monospaced_digits" = "等宽数字";
 "menu_bar_layout_gap" = "间距";
 "menu_bar_layout_gap_tight" = "紧凑";
 "menu_bar_layout_gap_regular" = "常规";
@@ -1808,6 +1805,9 @@
 "Gateway URL" = "网关URL";
 "Gemini CLI login is no longer supported" = "Gemini CLI 不再支持登录";
 "Gemini CLI migration" = "Gemini CLI 迁移";
+"Gemini app" = "Gemini app";
+"Gemini CLI" = "Gemini CLI";
+"Gemini app limits use your browser account and are separate from Gemini CLI quotas." = "Gemini app limits use your browser account and are separate from Gemini CLI quotas.";
 "Generated locally by CodexBar · Data through %@" = "由 CodexBar 本地生成 · 数据截至 %@";
 "GitHub cookies" = "GitHub Cookie";
 "GitHub does not publish this value. Enter it to show a usage bar. Applies to the selected GitHub account." = "GitHub 不公布该值。输入它以显示使用栏。适用于选定的 GitHub 账户。";
@@ -2619,10 +2619,8 @@
 "Daily spend · %@" = "每日支出 · %@";
 "Applies to the selected token account “%@”. Each account keeps its own limits." = "适用于所选令牌账户“%@”。每个账户保留各自的限制。";
 "Applies to the OpenAI API key, not to token accounts." = "适用于 OpenAI API 密钥，不适用于令牌账户。";
+"CodexBar will ask macOS Keychain for the Muse Code login token so it can fetch your Muse Code subscription usage. Click OK to continue." = "CodexBar 将向 macOS 钥匙串请求 Muse Code 登录 token，以获取你的 Muse Code 订阅用量。点击“确定”继续。";
 /* Claude Platform provider */
 "API credit" = "API 额度";
 "Purchased credit" = "已购买额度";
 "Claude Platform exposes Console credit balance and monthly spend, not local token cost history." = "Claude Platform 显示 Console 额度余额和每月支出，而不是本地 token 成本历史记录。";
-
-/* Gemini manual cookie source hint */
-"To read one browser profile, set Cookie source to Automatic." = "如需读取指定的浏览器配置文件，请将 Cookie 来源设为“自动”。";

@@ -597,10 +597,8 @@ extension UsageMenuCardView.Model {
             AlibabaTokenPlanProviderDescriptor.secondaryLabel(window: snapshot.secondary) ?? input.metadata.weeklyLabel
         } else if input.provider == .sub2api {
             "Weekly"
-        } else if input.provider == .gemini {
-            presentation.rateWindowLabels(metadata: input.metadata, snapshot: snapshot, now: input.now).secondary
         } else {
-            input.metadata.weeklyLabel
+            presentation.rateWindowLabels(metadata: input.metadata, snapshot: snapshot, now: input.now).secondary
         }
         let tertiaryLabel = input.provider == .sub2api
             ? L("Monthly")

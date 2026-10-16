@@ -1,5 +1,5 @@
 ---
-summary: "Gemini provider data sources: web usage limits, OAuth quota APIs, token refresh, and tier detection."
+summary: "Gemini CLI OAuth quotas and opt-in Gemini app web usage limits."
 read_when:
   - Debugging Gemini quota fetch or auth issues
   - Updating Gemini CLI OAuth integration
@@ -8,56 +8,46 @@ read_when:
 
 # Gemini provider
 
-Gemini uses the Gemini CLI OAuth credentials and private quota APIs. When those fail (consumer AI Pro/Ultra accounts
-after the Gemini CLI shutdown), it reads the Gemini app's usage limits from a signed-in gemini.google.com browser
-session.
+Choose **Gemini CLI** (the default) or **Gemini app** under Settings → Providers → Gemini → Usage source.
+They measure different quotas and may use different Google accounts. Changing the source clears the previous
+quota display. Antigravity remains a separate provider.
 
-## Data sources + fallback order
+## Data sources
 
-Auto keeps OAuth first and falls back to the web source on any OAuth failure, so a working CLI account (Workspace,
-education, Code Assist) is never replaced by a browser account. `--source web` and `--source api` select one path
-without fallback. Within the web source, profiles that are signed out or report no usage windows are skipped; query
-rejections and transport failures stop the traversal. Cached browser sessions are written with a conditional cache
-mutation, so a slow fetch cannot overwrite a session that another refresh committed meanwhile.
+- **Gemini CLI** uses local CLI OAuth credentials and the quota API described below. `auto` and `api` select this
+  path; they never fall back to a browser account. API-key and Vertex AI auth types are unsupported here.
+- **Gemini app** is an explicit `web` source for the 5-hour and weekly limits shown at
+  [gemini.google.com/usage](https://gemini.google.com/usage). Select Automatic cookies to use the shared browser
+  order, or Manual to paste a Cookie header. Login opens that usage page. The app source does not require Gemini CLI.
+- **Legacy CLI parsing** remains available to parser callers through `GeminiStatusProbe.parse(text:)`; the fetch
+  pipeline does not scrape `/stats`.
 
-- **Web fallback: Gemini app usage limits (macOS)**
-   - The same data as https://gemini.google.com/usage and the Gemini desktop app's Usage limits page: a 5-hour
-     window and a weekly window, shared by every model the account can use in the Gemini app.
-   - Request: `GET https://gemini.google.com/_/BardChatUi/graphql/schemas/GEMINI_WEB_GRAPHQL/executeQuery`
-     with `query_signature=<UsagePageQuery persisted ID>` and `variables=<JSON>`. Queries are GET-only and need no
-     XSRF token; the response is an XSSI-prefixed (`)]}'`) JSON array of GraphQL execution results.
-   - Mapping: `viewer.rpcs.getUsageInfo.pools[]` → `GXU_FIVE_HOURLY` primary (300 min) and `GXU_WEEKLY` secondary
-     (10080 min). `percentageUsed` is a 0–1 fraction (the page shows `Math.round(percentageUsed * 100)`); `gxu.windowRefreshesAt` (ISO 8601) is the reset.
-     `subscriptionTier` `TIER1` is labeled Pro. Errors for unrelated fields in the same query (upsell banners) are
-     ignored when usage is present. `viewer: null` means the session is signed out.
-   - Cookies: Google session cookies for `.google.com` / `gemini.google.com` (requires `__Secure-1PSID`,
-     `__Secure-3PSID`, or `SID`), imported through the shared browser order and `BrowserCookieAccessGate`, then
-     cached in the cookie header cache. A signed-out cached header is cleared and browsers are re-read.
-   - Settings → Providers → Gemini → Cookie source (Automatic / Manual / Off):
-     - Automatic: the first browser profile in import order with a working Google session wins. People signed in
-       to different Google accounts in several browsers or profiles should pin one with **Browser** and
-       **Browser profile** (config: `browserID`, `browserProfileID`). A pinned profile is read on every refresh,
-       never cached, and never falls back to another profile, so another account's usage cannot be shown.
-       `browserID` alone restricts discovery to that browser.
-     - Manual: paste a `Cookie:` header from gemini.google.com (config: `cookieHeader`).
-     - Off: skips the web source; Auto continues with OAuth.
-   - Profile pickers show Chromium display names from the browser's `Local State` (for example `Work (Profile 3)`).
-   - The "Gemini CLI migration" settings action (enable Antigravity) only appears when the web source cannot run:
-     cookie source Off, or a config pinned to `source: api`. Otherwise the fix is a signed-in gemini.google.com
-     session, not another provider.
-   - The Gemini desktop app keeps its own OAuth session in a Google-only Keychain access group, so CodexBar cannot
-     reuse it. Pin the browser profile signed in to the same account instead.
-   - The persisted query ID comes from the gemini.google.com `UsagePageSurface` bundle. If Google rotates it, the
-     endpoint answers with a validation error, the web source reports usage as unavailable, and CodexBar needs an
-     updated query ID. Auto has already tried OAuth by then, so there is nothing further to fall back to.
+## Gemini app request and account selection
 
-1) **OAuth-backed quota API**
-   - Reads auth type from `~/.gemini/settings.json`.
-   - Supported: `oauth-personal` (or unknown → try OAuth creds).
-   - Unsupported: `api-key`, `vertex-ai` (hard error).
+The bundled `gemini-web` plugin sends a cookie-authenticated GET to
+`https://gemini.google.com/_/BardChatUi/graphql/schemas/GEMINI_WEB_GRAPHQL/executeQuery`.
+The public `UsagePageSurface` JavaScript bundle identifies the persisted `UsagePageQuery` signature as
+`2/dWbCvkVB0X16r9NPnxifeOAAqdCqMf0xeWvau9yPy7g=` and its variables as:
 
-2) **Legacy CLI parsing** (parser exists but not used in current fetch path)
-   - `GeminiStatusProbe.parse(text:)` can parse `/stats` output.
+```json
+{"g1Request":{"entrypoints":["GEMINI_USAGE_SETTINGS_UPGRADE_BANNER"]},"workspaceRequest":{"recommendationsForSurfaceRequests":[]}}
+```
+
+The response's `data.viewer.rpcs.getUsageInfo.pools` contains `GXU_FIVE_HOURLY` and `GXU_WEEKLY` entries.
+`percentageUsed` is a fraction; `gxu.windowRefreshesAt` supplies the reset time. Missing or invalid values remain
+unavailable, while a reported zero stays zero. The app's subscription tier comes from this response; CLI account
+identity and plan data are never copied into the app result.
+
+Cookie values stay opaque to the plugin and are scoped to the Gemini request URL. Imported browser sessions are not
+written to a cookie cache; a manually entered Cookie header follows the existing local settings storage policy.
+The shared browser gate forbids prompts during background or settings refreshes, checks matching cookie rows before
+Safe Storage access, and applies the manual-action prompt budget and denial cooldown. Signed-out candidates can be
+skipped; the first validated account ends traversal, even when it reports no supported quota windows. Query drift
+fails visibly instead of silently switching accounts or reusing CLI quotas.
+
+```sh
+codexbar usage --provider gemini --source web --json
+```
 
 ## OAuth credentials
 - File: `~/.gemini/oauth_creds.json`.

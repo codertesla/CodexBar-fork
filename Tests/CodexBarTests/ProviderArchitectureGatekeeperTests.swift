@@ -1894,12 +1894,11 @@ struct ProviderArchitectureGatekeeperTests {
                 "cursor",
                 "doubao",
                 "factory",
-                "gemini",
                 "grok",
                 "ollama",
                 "sub2api",
             ],
-            expectedReferenceCount: 13,
+            expectedReferenceCount: 12,
             expectedReferenceFingerprint: [
                 "factory@0",
                 "cursor@4",
@@ -1912,8 +1911,7 @@ struct ProviderArchitectureGatekeeperTests {
                 "amp@21",
                 "alibabatokenplan@23",
                 "sub2api@25",
-                "gemini@27",
-                "sub2api@32",
+                "sub2api@30",
             ],
             reason: "This exact shared renderer maps provider-owned presentation data into the generic UI model."),
         AllowedProviderConstruct(
@@ -2148,10 +2146,8 @@ struct ProviderArchitectureGatekeeperTests {
         AllowedProviderConstruct(
             path: "Sources/CodexBar/MenuDescriptor.swift",
             anchor: "if provider == .factory, snapshot.tertiary != nil {",
-            expectedProviderIDs: [
-                "alibabatokenplan", "amp", "codex", "doubao", "factory", "gemini", "grok", "sub2api",
-            ],
-            expectedReferenceCount: 11,
+            expectedProviderIDs: ["alibabatokenplan", "amp", "codex", "doubao", "factory", "grok", "sub2api"],
+            expectedReferenceCount: 10,
             expectedReferenceFingerprint: [
                 "factory@0",
                 "codex@3",
@@ -2162,8 +2158,7 @@ struct ProviderArchitectureGatekeeperTests {
                 "alibabatokenplan@17",
                 "codex@22",
                 "amp@28",
-                "gemini@30",
-                "alibabatokenplan@32",
+                "alibabatokenplan@30",
             ],
             reason: "This exact shared renderer maps provider-owned presentation data into the generic UI model."),
         AllowedProviderConstruct(
