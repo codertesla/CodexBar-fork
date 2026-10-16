@@ -4,13 +4,13 @@
 
 ### Added
 
-- Gemini: add an explicit Gemini app source for browser-account 5-hour and weekly limits, separate from CLI and Antigravity quotas, with localized source labels and guidance (#4535, #4533). Thanks @codertesla!
 - Menu bar: add Spend layout items and conditional rules for providers that report a spend budget, such as Claude Enterprise (#4530). Thanks @benjschiller!
 - Settings: manage an opt-in HTTP usage server with local token storage, VPN/Tailscale binding controls, and automatic start/stop with the Mac app (#4430). Thanks @gmkbenjamin!
 - Plugins: show quota gauges on user-plugin tabs and allow enabled plugins in the Overview provider picker (#4471). Thanks @soimy!
 - Settings: offer a six-day Monday–Saturday work week for weekly pace and session forecasts (#4548). Thanks @ViaxCo!
 - Claude: optionally read web usage from the Claude desktop app’s signed-in session, following desktop account switches without using browser credentials (#4494). Thanks @flutterrausch!
 - Settings: navigate visited panes with Back/Forward and Command-[ / Command-], with a native-style detail header on macOS 26 and later (#4475). Thanks @elijahfriedman!
+- Gemini: add an explicit Gemini app source for browser-account 5-hour and weekly limits, separate from CLI and Antigravity quotas, with localized source labels and guidance (#4535, #4533). Thanks @codertesla!
 
 ### Changed
 
