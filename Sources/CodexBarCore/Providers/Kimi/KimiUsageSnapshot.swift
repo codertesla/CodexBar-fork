@@ -8,6 +8,7 @@ public struct KimiUsageSnapshot: Sendable {
     let rateLimitWindow: KimiWindow?
     let subscriptionBalance: KimiSubscriptionBalance?
     let subscriptionCodeWeeklyLimit: KimiSubscriptionRateLimit?
+    let giftBalances: [KimiSubscriptionBalance]?
     let codeUsagePools: KimiCodeUsagePools?
 
     public init(weekly: KimiUsageDetail?, rateLimit: KimiUsageDetail?, updatedAt: Date) {
@@ -20,6 +21,7 @@ public struct KimiUsageSnapshot: Sendable {
         rateLimitWindow: KimiWindow? = nil,
         subscriptionBalance: KimiSubscriptionBalance?,
         subscriptionCodeWeeklyLimit: KimiSubscriptionRateLimit? = nil,
+        giftBalances: [KimiSubscriptionBalance]? = nil,
         codeUsagePools: KimiCodeUsagePools? = nil,
         planName: String? = nil,
         updatedAt: Date)
@@ -29,6 +31,7 @@ public struct KimiUsageSnapshot: Sendable {
         self.rateLimitWindow = rateLimitWindow
         self.subscriptionBalance = subscriptionBalance
         self.subscriptionCodeWeeklyLimit = subscriptionCodeWeeklyLimit
+        self.giftBalances = giftBalances
         self.planName = planName
         self.codeUsagePools = codeUsagePools
         self.updatedAt = updatedAt
@@ -173,7 +176,7 @@ extension KimiUsageSnapshot {
         let extraRateWindows = [
             monthlyWindow,
             showsDistinctCodeWeeklyWindow ? subscriptionCodeWeeklyWindow : nil,
-        ].compactMap(\.self)
+        ].compactMap(\.self) + self.giftWindows()
 
         return UsageSnapshot(
             primary: weeklyWindow,
@@ -185,6 +188,29 @@ extension KimiUsageSnapshot {
                 accountEmail: nil,
                 accountOrganization: nil,
                 loginMethod: self.planName))
+    }
+
+    /// Gift pools (e.g. "Reservation Bonus", "Invite to Earn Credit") are one-off grants that expire rather than
+    /// recur, so they carry no window duration and never feed pace or the monthly menu bar metric.
+    private func giftWindows() -> [NamedRateWindow] {
+        (self.giftBalances ?? []).enumerated().compactMap { index, balance -> NamedRateWindow? in
+            guard balance.feature == nil || balance.feature == "FEATURE_OMNI" else { return nil }
+            guard balance.type == nil || balance.type == "GIFT" else { return nil }
+            guard let ratio = balance.amountUsedRatio, ratio.isFinite else { return nil }
+            let expiresAt = ISO8601DateParser.parse(balance.expireTime)
+            if let expiresAt, expiresAt <= self.updatedAt { return nil }
+            let window = RateWindow(
+                usedPercent: Self.clampedPercent(ratio * 100),
+                windowMinutes: nil,
+                resetsAt: expiresAt,
+                resetDescription: nil)
+            let name = balance.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let id = balance.id?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return NamedRateWindow(
+                id: "kimi-gift-\(id.flatMap { $0.isEmpty ? nil : $0 } ?? String(index))",
+                title: name.flatMap { $0.isEmpty ? nil : $0 } ?? "Bonus credits",
+                window: window)
+        }
     }
 
     private static func isEquivalentToWeeklyWindow(_ window: RateWindow, weeklyWindow: RateWindow?) -> Bool {

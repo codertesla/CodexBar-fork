@@ -128,6 +128,7 @@ public struct KimiUsageFetcher: Sendable {
             rateLimitWindow: rateLimit?.window,
             subscriptionBalance: subscription.stats?.subscriptionBalance,
             subscriptionCodeWeeklyLimit: subscription.stats?.ratelimitCode7d,
+            giftBalances: subscription.stats?.giftBalances,
             planName: subscription.planName,
             updatedAt: now)
     }
@@ -190,6 +191,7 @@ public struct KimiUsageFetcher: Sendable {
             rateLimitWindow: snapshot.rateLimitWindow,
             subscriptionBalance: subscription.stats?.subscriptionBalance,
             subscriptionCodeWeeklyLimit: subscription.stats?.ratelimitCode7d,
+            giftBalances: subscription.stats?.giftBalances,
             codeUsagePools: snapshot.codeUsagePools,
             planName: snapshot.planName ?? subscription.planName,
             updatedAt: now)
