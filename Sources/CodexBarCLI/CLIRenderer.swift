@@ -428,10 +428,17 @@ enum CLIRenderer {
         now: Date) -> CLICardMetric
     {
         let rateWindow = window.window
-        let detailBacked = ProviderDescriptorRegistry.descriptor(for: provider).metadata.usesDetailBackedWindow
-        let reset = detailBacked
-            ? self.resetLineForDetailBackedWindow(window: rateWindow, style: resetStyle, now: now)
-            : UsageFormatter.resetLine(for: rateWindow, style: resetStyle, now: now)
+        let descriptor = ProviderDescriptorRegistry.descriptor(for: provider)
+        let detailBacked = descriptor.metadata.usesDetailBackedWindow
+        let reset = if descriptor.presentation.menuCard.extraRateWindowIsExpiringBalanceWindow(window),
+                       let expiresAt = rateWindow.resetsAt
+        {
+            UsageFormatter.expiryLine(for: expiresAt, style: resetStyle, now: now)
+        } else if detailBacked {
+            self.resetLineForDetailBackedWindow(window: rateWindow, style: resetStyle, now: now)
+        } else {
+            UsageFormatter.resetLine(for: rateWindow, style: resetStyle, now: now)
+        }
         let detailText = detailBacked ? self.detailLineForDetailBackedWindow(window: rateWindow) : nil
         return CLICardMetric(
             label: window.title,
@@ -650,7 +657,8 @@ enum CLIRenderer {
             context: context,
             now: now,
             lines: &lines,
-            usesResetDescriptionAsDetail: presentation.menuCard.extraRateWindowShowsResetDescriptionAsDetail)
+            usesResetDescriptionAsDetail: presentation.menuCard.extraRateWindowShowsResetDescriptionAsDetail,
+            isExpiringBalance: presentation.menuCard.extraRateWindowIsExpiringBalanceWindow)
     }
 
     private static func appendNamedRateWindowLines(
@@ -658,13 +666,19 @@ enum CLIRenderer {
         context: RenderContext,
         now: Date,
         lines: inout [String],
-        usesResetDescriptionAsDetail: (NamedRateWindow) -> Bool = { _ in false })
+        usesResetDescriptionAsDetail: (NamedRateWindow) -> Bool = { _ in false },
+        isExpiringBalance: (NamedRateWindow) -> Bool = { _ in false })
     {
         for window in windows {
             let line = window.usageKnown
                 ? self.rateLine(title: window.title, window: window.window, useColor: context.useColor)
                 : self.labelValueLine(window.title, value: "Unavailable", useColor: context.useColor)
             lines.append(line)
+            if isExpiringBalance(window), let expiresAt = window.window.resetsAt {
+                let expiry = UsageFormatter.expiryLine(for: expiresAt, style: context.resetStyle, now: now)
+                lines.append(self.subtleLine(expiry, useColor: context.useColor))
+                continue
+            }
             self.appendResetAndDetailLines(
                 usesDetail: usesResetDescriptionAsDetail(window),
                 window: window.window,
