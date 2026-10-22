@@ -34,7 +34,7 @@ struct KimiLapsedSubscriptionTests {
     @Test
     func `decodes usage response without Code usage pools`() throws {
         let response = try JSONDecoder().decode(KimiUsageResponse.self, from: Data(Self.lapsedUsageJSON.utf8))
-        #expect(response.usages.isEmpty)
+        #expect(response.usages == nil)
     }
 
     @Test

@@ -36,6 +36,8 @@ same inline dashboard pattern used by the OpenAI API provider.
 
 Incomplete proxy records with an explicit null `stop_reason`, positive input, zero output, and no cache counters are excluded from token and cost totals until a completed record arrives. Their day and model stay visible with an **Incomplete** marker and an excluded-request count. Known usage remains a partial subtotal; an incomplete-only period stays unavailable rather than becoming zero. Older caches are rebuilt once to apply this distinction. Missing `stop_reason` alone retains compatibility with older complete logs.
 
+Completed requests for models without a known price keep their token usage and report unpriced coverage. Usage & Spend retains the priced subtotal from the other requests and days as a lower bound; unknown prices do not become zero. Fully priced history keeps its usual estimated totals.
+
 ## Data sources + selection order
 
 ### Default selection (debug menu disabled)
@@ -134,6 +136,10 @@ later requests. There is no recurring process scan; other process groups and oth
 This cleanup applies to the reusable PTY session, not the separate one-shot usage or auth-status commands.
 
 ## Keychain prompt policy (Claude OAuth)
+
+If CodexBar reports that its Claude OAuth cache is temporarily unavailable in macOS Keychain, check
+that the login keychain is unlocked in Keychain Access, then retry Refresh. This guidance does not
+change the existing prompt policy or switch to another credential source.
 
 - Preferences → Providers → Claude → Keychain prompt policy.
 - Options:
@@ -632,6 +638,7 @@ Model-scoped weekly-window proof (synthetic data, no real accounts or credential
   - Claude-swap history contributes to the combined Claude total, including when an explicit `$CLAUDE_CONFIG_DIR` is set. Shared-history symlinks are scanned once, copied responses use the same deduplication as native logs, and missing profile directories do not prevent other homes from contributing. Local cost records do not establish per-account attribution.
 - Quota-week menu cards reuse the immutable snapshot’s day projection, warmed in the background. New snapshots and changed bucket time zones rebuild it; reset observations and the current time remain live on every card build.
 - Cache:
+  - Bundled fallback pricing includes Claude Mythos 5.1 and Mythos 5 at [Anthropic's published rates](https://platform.claude.com/docs/en/about-claude/pricing). The report-semantics update reprices retained usage without rereading unchanged transcripts.
   - GPT usage recorded through Claude Code uses the bundled OpenAI model's long-context boundary (272K for supported models), while retaining catalog rates. Uncached input and cache-read/create tokens all contribute to the prompt length. Saved reports are recalculated after pricing corrections without discarding retained Codex history.
   - Native provider cache: `~/Library/Caches/CodexBar/cost-usage/claude-v6.json`. This is a small manifest; its sibling `claude-v6.json.fragments` directory holds immutable JSON shards grouped by transcript project/directory, including source identities and empty-file parse offsets.
   - Report memo: `~/Library/Caches/CodexBar/cost-usage/claude-v6.report-memo.json` stores the daily report and references project shards for source stamps. It is reused only while transcript inventory, cache/pricing artifacts, requested window, and report-semantics revision still match.

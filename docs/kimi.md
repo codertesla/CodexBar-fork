@@ -18,6 +18,7 @@ Code subscription credentials.
 
 - Displays weekly request quota (from membership tier)
 - Shows current 5-hour rate limit usage
+- Shows promotional gift balances and expiry dates from web membership statistics, including Code API enrichment. Gift balances remain separate from recurring quota windows and monthly blocking limits. Server-provided gift names follow Chinese UI settings; other UI languages request English names.
 - Displays membership from the API/CLI usage response, with the active web subscription title as a fallback
 - Detects the installed Kimi CLI version, including standalone installs outside the GUI app PATH
 - Enriches Code API/CLI usage with the monthly membership pool when a web session is available
@@ -116,6 +117,10 @@ browser access. A web session can supply a subscription title when the usage res
 a membership lookup failure does not fail the quota query. Quota statistics and the optional plan title
 load independently within a shared two-second enrichment budget; a slow title cannot discard completed
 monthly or Code 7-day statistics. Cancellation stops automatic retries before further browser reads.
+
+If a Code subscription lapses and the web response omits Code pools, valid membership quotas remain
+visible without inventing empty Code bars. A response with neither Code usage nor a usable membership
+quota still fails the refresh. The separate `totalQuota` field is not treated as a Code quota window.
 
 **Note**: Requires Full Disk Access to read browser cookies (System Settings → Privacy & Security → Full Disk Access → CodexBar).
 
