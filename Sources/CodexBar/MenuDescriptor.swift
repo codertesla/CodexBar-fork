@@ -333,20 +333,12 @@ struct MenuDescriptor {
                     resetOverride: opusResetOverride)
             }
             for extra in presentation.extraRateWindows(snapshot: snap) {
-                let expiryOverride: String? = if presentation.menuCard.extraRateWindowIsExpiringBalanceWindow(extra),
-                                                 let expiresAt = extra.window.resetsAt
-                {
-                    UsageFormatter.expiryLine(for: expiresAt, style: resetStyle)
-                } else {
-                    nil
-                }
                 Self.appendRateWindow(
                     entries: &entries,
                     title: extra.title,
                     window: extra.window,
                     resetStyle: resetStyle,
                     showUsed: settings.usageBarsShowUsed,
-                    resetOverride: expiryOverride,
                     descriptionIsDetail: presentation.menuCard.extraRateWindowShowsResetDescriptionAsDetail(extra))
             }
 

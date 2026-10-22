@@ -69,7 +69,6 @@ public struct KimiUsageFetcher: Sendable {
             snapshot,
             webAuthToken: webCredential.token,
             region: region,
-            now: now,
             transport: webCredential.transport(transport, region: region))
     }
 
@@ -173,7 +172,6 @@ public struct KimiUsageFetcher: Sendable {
         _ snapshot: KimiUsageSnapshot,
         webAuthToken: String,
         region: KimiRegion,
-        now: Date,
         transport: any ProviderHTTPTransport) async throws -> KimiUsageSnapshot
     {
         let sessionInfo = self.decodeSessionInfo(from: webAuthToken)
@@ -185,16 +183,12 @@ public struct KimiUsageFetcher: Sendable {
             grace: .seconds(self.subscriptionGraceSeconds),
             includePlan: snapshot.planName == nil)
         let subscription = try await enrichment.value()
-        return KimiUsageSnapshot(
-            weekly: snapshot.weekly,
-            rateLimit: snapshot.rateLimit,
-            rateLimitWindow: snapshot.rateLimitWindow,
-            subscriptionBalance: subscription.stats?.subscriptionBalance,
-            subscriptionCodeWeeklyLimit: subscription.stats?.ratelimitCode7d,
-            giftBalances: subscription.stats?.giftBalances,
-            codeUsagePools: snapshot.codeUsagePools,
-            planName: snapshot.planName ?? subscription.planName,
-            updatedAt: now)
+        var enriched = snapshot
+        enriched.subscriptionBalance = subscription.stats?.subscriptionBalance
+        enriched.subscriptionCodeWeeklyLimit = subscription.stats?.ratelimitCode7d
+        enriched.giftBalances = subscription.stats?.giftBalances
+        enriched.planName = snapshot.planName ?? subscription.planName
+        return enriched
     }
 
     static func parseCodeAPIUsage(from data: Data, now: Date = Date()) throws -> KimiUsageSnapshot {
@@ -344,8 +338,7 @@ public struct KimiUsageFetcher: Sendable {
         return try JSONDecoder().decode(KimiSubscriptionStatsResponse.self, from: response.data)
     }
 
-    /// Kimi localizes server-owned labels (e.g. gift `displayName`) by `x-language` and answers unknown
-    /// languages in Chinese, so only Chinese UI asks for Chinese; every other UI language stays on English.
+    /// Kimi serves gift names in Chinese for unsupported languages; keep other UI languages on English.
     static func webLanguage(for locale: Locale) -> String {
         locale.language.languageCode?.identifier == "zh" ? "zh-CN" : "en-US"
     }
@@ -369,15 +362,9 @@ public struct KimiUsageFetcher: Sendable {
         request.setValue("web", forHTTPHeaderField: "x-msh-platform")
         request.setValue(TimeZone.current.identifier, forHTTPHeaderField: "r-timezone")
 
-        if let deviceId = sessionInfo?.deviceId {
-            request.setValue(deviceId, forHTTPHeaderField: "x-msh-device-id")
-        }
-        if let sessionId = sessionInfo?.sessionId {
-            request.setValue(sessionId, forHTTPHeaderField: "x-msh-session-id")
-        }
-        if let trafficId = sessionInfo?.trafficId {
-            request.setValue(trafficId, forHTTPHeaderField: "x-traffic-id")
-        }
+        request.setValue(sessionInfo?.deviceId, forHTTPHeaderField: "x-msh-device-id")
+        request.setValue(sessionInfo?.sessionId, forHTTPHeaderField: "x-msh-session-id")
+        request.setValue(sessionInfo?.trafficId, forHTTPHeaderField: "x-traffic-id")
         return request
     }
 

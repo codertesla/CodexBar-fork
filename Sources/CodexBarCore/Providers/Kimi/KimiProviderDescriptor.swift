@@ -3,7 +3,6 @@ import Foundation
 public enum KimiProviderDescriptor {
     public static let sessionWindowMinutes = 5 * 60
     public static let weeklyWindowMinutes = 7 * 24 * 60
-    static let giftWindowIDPrefix = "kimi-gift-"
     public static let descriptor: ProviderDescriptor = Self.makeDescriptor()
     private static let credentials = ProviderCredentialAdapter(
         supportsAPIKeyOverride: true,
@@ -119,7 +118,6 @@ public enum KimiProviderDescriptor {
                 menuBarWindowResolver: self.menuBarWindow,
                 widgetRowLimitResolver: { _, _ in 3 },
                 menuCard: ProviderMenuCardPresentation(
-                    extraRateWindowIsExpiringBalance: { $0.id.hasPrefix(Self.giftWindowIDPrefix) },
                     resetWindowUsesWeeklyPace: true,
                     blockingQuota: ("kimi-monthly", "Blocked by monthly limit"))),
             fetchPlan: ProviderFetchPlan(

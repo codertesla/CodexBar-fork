@@ -87,50 +87,31 @@ struct KimiRatioPool: Codable, Sendable {
 }
 
 struct KimiSubscriptionStatsResponse: Codable, Sendable {
-    let subscriptionBalance: KimiSubscriptionBalance?
+    let subscriptionBalance: KimiCreditBalance?
     let ratelimitCode7d: KimiSubscriptionRateLimit?
     /// Promotional credit pools (reservation bonus, invite rewards, ...) granted on top of the subscription.
-    let giftBalances: [KimiSubscriptionBalance]?
+    let giftBalances: [KimiCreditBalance]?
 
     private enum CodingKeys: String, CodingKey { case subscriptionBalance, ratelimitCode7d, giftBalances }
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.subscriptionBalance = try container.decodeIfPresent(
-            KimiSubscriptionBalance.self,
+            KimiCreditBalance.self,
             forKey: .subscriptionBalance)
         self.ratelimitCode7d = try container.decodeIfPresent(KimiSubscriptionRateLimit.self, forKey: .ratelimitCode7d)
         // Optional gift schema drift must not reject the subscription balance.
-        self.giftBalances = try? container.decodeIfPresent([KimiSubscriptionBalance].self, forKey: .giftBalances)
+        self.giftBalances = try? container.decodeIfPresent([KimiCreditBalance].self, forKey: .giftBalances)
     }
 }
 
-struct KimiSubscriptionBalance: Codable, Sendable {
-    let id: String?
+struct KimiCreditBalance: Codable, Sendable {
     let feature: String?
     let type: String?
     let amountUsedRatio: Double?
     let kimiCodeUsedRatio: Double?
     let expireTime: String?
-    let displayName: String?
-
-    init(
-        id: String? = nil,
-        feature: String?,
-        type: String?,
-        amountUsedRatio: Double?,
-        kimiCodeUsedRatio: Double?,
-        expireTime: String?,
-        displayName: String? = nil)
-    {
-        self.id = id
-        self.feature = feature
-        self.type = type
-        self.amountUsedRatio = amountUsedRatio
-        self.kimiCodeUsedRatio = kimiCodeUsedRatio
-        self.expireTime = expireTime
-        self.displayName = displayName
-    }
+    var displayName: String?
 }
 
 struct KimiSubscriptionRateLimit: Codable, Sendable {
@@ -227,17 +208,8 @@ struct KimiWindow: Codable, Sendable {
 
     var durationMinutes: Int? {
         guard self.duration > 0 else { return nil }
-        let multiplier: Int
-        switch self.timeUnit {
-        case "TIME_UNIT_MINUTE":
-            multiplier = 1
-        case "TIME_UNIT_HOUR":
-            multiplier = 60
-        case "TIME_UNIT_DAY":
-            multiplier = 24 * 60
-        default:
-            return nil
-        }
+        let multipliers = ["TIME_UNIT_MINUTE": 1, "TIME_UNIT_HOUR": 60, "TIME_UNIT_DAY": 24 * 60]
+        guard let multiplier = multipliers[self.timeUnit] else { return nil }
         let result = self.duration.multipliedReportingOverflow(by: multiplier)
         return result.overflow ? nil : result.partialValue
     }
