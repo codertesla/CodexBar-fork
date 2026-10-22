@@ -172,3 +172,16 @@ struct KimiGiftBalanceTests {
         #expect(window == session)
     }
 }
+
+struct KimiWebLanguageTests {
+    @Test(arguments: [
+        ("zh-Hans", "zh-CN"),
+        ("zh-Hant-TW", "zh-CN"),
+        ("en-US", "en-US"),
+        ("ja-JP", "en-US"),
+        ("en_US_POSIX", "en-US"),
+    ])
+    func `requests Chinese gift names only for Chinese UI`(identifier: String, expected: String) {
+        #expect(KimiUsageFetcher.webLanguage(for: Locale(identifier: identifier)) == expected)
+    }
+}

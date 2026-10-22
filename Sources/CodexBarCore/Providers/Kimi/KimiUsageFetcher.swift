@@ -344,6 +344,12 @@ public struct KimiUsageFetcher: Sendable {
         return try JSONDecoder().decode(KimiSubscriptionStatsResponse.self, from: response.data)
     }
 
+    /// Kimi localizes server-owned labels (e.g. gift `displayName`) by `x-language` and answers unknown
+    /// languages in Chinese, so only Chinese UI asks for Chinese; every other UI language stays on English.
+    static func webLanguage(for locale: Locale) -> String {
+        locale.language.languageCode?.identifier == "zh" ? "zh-CN" : "en-US"
+    }
+
     private static func webRequest(url: URL, authToken: String, sessionInfo: SessionInfo?) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -359,7 +365,7 @@ public struct KimiUsageFetcher: Sendable {
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("1", forHTTPHeaderField: "connect-protocol-version")
-        request.setValue("en-US", forHTTPHeaderField: "x-language")
+        request.setValue(Self.webLanguage(for: UsageFormatter.currentLocale()), forHTTPHeaderField: "x-language")
         request.setValue("web", forHTTPHeaderField: "x-msh-platform")
         request.setValue(TimeZone.current.identifier, forHTTPHeaderField: "r-timezone")
 
