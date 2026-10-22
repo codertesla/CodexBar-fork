@@ -2,6 +2,14 @@ import Foundation
 
 struct KimiUsageResponse: Codable {
     let usages: [KimiUsage]
+
+    private enum CodingKeys: String, CodingKey { case usages }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Lapsed subscriptions answer with only `totalQuota` and no Code usage pools.
+        self.usages = try container.decodeIfPresent([KimiUsage].self, forKey: .usages) ?? []
+    }
 }
 
 struct KimiCodeAPIUsageResponse: Codable {
