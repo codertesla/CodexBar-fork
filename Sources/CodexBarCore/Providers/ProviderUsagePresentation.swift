@@ -285,6 +285,7 @@ public struct ProviderMenuCardPresentation: Sendable {
     private let costVisibilityResolver: CostVisibilityResolver
     private let movePrimaryDetailToStatus: SnapshotPredicate
     private let extraRateWindowUsesResetDescriptionAsDetail: ExtraRateWindowPredicate
+    private let extraRateWindowIsExpiringBalance: ExtraRateWindowPredicate
     private let primaryCostHistoryResolver: PrimaryCostHistoryResolver
     public let creditsVisibility: ProviderCreditsVisibility
     public let showsCreditsSection: Bool
@@ -333,6 +334,7 @@ public struct ProviderMenuCardPresentation: Sendable {
         clearsPrimaryReset: Bool = false,
         movePrimaryDetailToStatus: @escaping SnapshotPredicate = { _ in false },
         extraRateWindowUsesResetDescriptionAsDetail: @escaping ExtraRateWindowPredicate = { _ in false },
+        extraRateWindowIsExpiringBalance: @escaping ExtraRateWindowPredicate = { _ in false },
         primaryDetailKind: ProviderPrimaryDetailKind = .none,
         usesAbacusPace: Bool = false,
         usesSyntheticRollingRegen: Bool = false,
@@ -358,6 +360,7 @@ public struct ProviderMenuCardPresentation: Sendable {
         self.clearsPrimaryReset = clearsPrimaryReset
         self.movePrimaryDetailToStatus = movePrimaryDetailToStatus
         self.extraRateWindowUsesResetDescriptionAsDetail = extraRateWindowUsesResetDescriptionAsDetail
+        self.extraRateWindowIsExpiringBalance = extraRateWindowIsExpiringBalance
         self.primaryDetailKind = primaryDetailKind
         self.usesAbacusPace = usesAbacusPace
         self.usesSyntheticRollingRegen = usesSyntheticRollingRegen
@@ -381,6 +384,12 @@ public struct ProviderMenuCardPresentation: Sendable {
     /// Whether an extra rate window renders its `resetDescription` as the menu-card detail line.
     public func extraRateWindowShowsResetDescriptionAsDetail(_ namedWindow: NamedRateWindow) -> Bool {
         self.extraRateWindowUsesResetDescriptionAsDetail(namedWindow)
+    }
+
+    /// One-time balances (e.g. promotional grants) whose `resetsAt` is an expiry, not a recurring reset.
+    /// They render "Expires …" and are not gated by the provider's blocking quota.
+    public func extraRateWindowIsExpiringBalanceWindow(_ namedWindow: NamedRateWindow) -> Bool {
+        self.extraRateWindowIsExpiringBalance(namedWindow)
     }
 
     public func primaryCostHistory(

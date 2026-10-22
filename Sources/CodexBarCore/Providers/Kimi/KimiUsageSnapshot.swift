@@ -207,7 +207,7 @@ extension KimiUsageSnapshot {
             let name = balance.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
             let id = balance.id?.trimmingCharacters(in: .whitespacesAndNewlines)
             return NamedRateWindow(
-                id: "kimi-gift-\(id.flatMap { $0.isEmpty ? nil : $0 } ?? String(index))",
+                id: KimiProviderDescriptor.giftWindowIDPrefix + (id.flatMap { $0.isEmpty ? nil : $0 } ?? String(index)),
                 title: name.flatMap { $0.isEmpty ? nil : $0 } ?? "Bonus credits",
                 window: window)
         }

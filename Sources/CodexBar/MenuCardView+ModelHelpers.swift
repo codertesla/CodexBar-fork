@@ -230,16 +230,20 @@ extension UsageMenuCardView.Model {
     }
 
     static func blockingQuotaMetrics(_ metrics: [Metric], input: Input, snapshot: UsageSnapshot) -> [Metric] {
-        guard let policy = ProviderDescriptorRegistry.descriptor(for: input.provider).presentation.menuCard
-            .blockingQuota,
-            let blocker = snapshot.extraRateWindows?.first(where: { $0.id == policy.windowID && $0.usageKnown })
+        let menuCard = ProviderDescriptorRegistry.descriptor(for: input.provider).presentation.menuCard
+        guard let policy = menuCard.blockingQuota,
+              let blocker = snapshot.extraRateWindows?.first(where: { $0.id == policy.windowID && $0.usageKnown })
         else { return metrics }
         return metrics.map { metric in
             let window: RateWindow? = switch metric.id {
             case "primary": snapshot.primary
             case "secondary": snapshot.secondary
             case "tertiary": snapshot.tertiary
-            default: snapshot.extraRateWindows?.first { $0.id == metric.id && $0.usageKnown }?.window
+            default: snapshot.extraRateWindows?.first {
+                    // Expiring balances (e.g. Kimi gift credits) are spent once the blocking quota is gone,
+                    // so that quota must not mask their own remaining amount.
+                    $0.id == metric.id && $0.usageKnown && !menuCard.extraRateWindowIsExpiringBalanceWindow($0)
+                }?.window
             }
             guard let window, !window.isSyntheticPlaceholder,
                   let projection = RateWindow.bindingQuotaProjection(
@@ -1092,6 +1096,12 @@ extension UsageMenuCardView.Model {
         namedWindow: NamedRateWindow,
         input: Input) -> String?
     {
+        if let expiresAt = namedWindow.window.resetsAt,
+           ProviderDescriptorRegistry.descriptor(for: input.provider).presentation.menuCard
+               .extraRateWindowIsExpiringBalanceWindow(namedWindow)
+        {
+            return UsageFormatter.expiryLine(for: expiresAt, style: input.resetTimeDisplayStyle, now: input.now)
+        }
         if input.provider == .antigravity,
            namedWindow.window.resetsAt == nil,
            self.isAntigravityQuotaSummaryWindow(namedWindow)

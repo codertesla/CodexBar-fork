@@ -183,6 +183,21 @@ public enum UsageFormatter {
         return nil
     }
 
+    /// Expiry wording for one-time balances, mirroring `resetLine` date styles.
+    public static func expiryLine(
+        for date: Date,
+        style: ResetTimeDisplayStyle,
+        now: Date = .init()) -> String
+    {
+        let text = switch style {
+        case .absolute:
+            self.resetDescription(from: date, now: now)
+        case .countdown:
+            self.resetCountdownDescription(from: date, now: now)
+        }
+        return self.localized("Expires %@", text == "now" ? self.localized("now") : text)
+    }
+
     public static func updatedString(from date: Date, now: Date = .init()) -> String {
         let delta = now.timeIntervalSince(date)
         guard let elapsedSeconds = Int(exactly: delta.rounded(.towardZero)) else {
