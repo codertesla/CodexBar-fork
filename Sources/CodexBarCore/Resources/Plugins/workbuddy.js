@@ -127,15 +127,20 @@ defineProvider({
       "TCACA_code_030_BjSt89qTvr",
     ];
     // Reset time is optional: a failed or unexpected package listing must not discard the balance.
+    // The paid listing carries the subscription cycle, which is what refills the allowance. The free
+    // listing also holds trial and reward grants that end earlier — the trial grant closes with the
+    // calendar month — so it only supplies the reset when the paid listing has no future cycle end.
+    const paidListing = "/billing/meter/get-user-resource-paid-packages";
+    const freeListing = "/billing/meter/get-user-resource-free-packages";
     const nextReset = async (session, agent) => {
       const now = ctx.date.now().getTime();
       // Share five seconds across listings, retaining the host's margin for publishing the balance.
       const hostDeadline = Number(ctx.settings.get("resetDeadlineMillis"));
       const deadline = Math.min(Date.now() + 5000, hostDeadline > 0 ? hostDeadline : Infinity);
-      let earliest;
+      const earliest = new Map();
       for (const [path, codes] of [
-        ["/billing/meter/get-user-resource-paid-packages", paidPackageCodes],
-        ["/billing/meter/get-user-resource-free-packages", freePackageCodes],
+        [paidListing, paidPackageCodes],
+        [freeListing, freePackageCodes],
       ]) {
         const budget = (deadline - Date.now()) / 1000;
         if (budget < 1) break;
@@ -154,14 +159,16 @@ defineProvider({
             const account = raw;
             if (account.CapacityUnit !== "credits") continue;
             const end = cycleEnd(account.CycleEndTime);
-            if (end && end.getTime() > now && (!earliest || end.getTime() < earliest.getTime())) earliest = end;
+            if (!end || end.getTime() <= now) continue;
+            const current = earliest.get(path);
+            if (!current || end.getTime() < current.getTime()) earliest.set(path, end);
           }
         } catch (error) {
           const failure = error;
           if (failure.transportClass === "cancelled") throw error;
         }
       }
-      return earliest;
+      return _nullishCoalesce(earliest.get(paidListing), () => earliest.get(freeListing));
     };
 
     let rejected = false;

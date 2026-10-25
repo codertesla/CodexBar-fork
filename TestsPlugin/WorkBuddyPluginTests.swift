@@ -145,6 +145,38 @@ struct WorkBuddyPluginTests {
         #expect(snapshot.primary?.resetsAt == Date(timeIntervalSince1970: 1_792_512_000))
     }
 
+    @Test(arguments: BundledPluginTestSupport.engines)
+    func `the paid cycle outranks an earlier free grant`(engine: ProviderPluginEngineKind) async throws {
+        let paid = #"""
+        {"code":0,"msg":"OK","data":{"Accounts":[
+          {"CapacityUnit":"credits","CycleEndTime":"2026-11-24 12:44:13"}
+        ]}}
+        """#
+        // The trial grant closes with the calendar month and the reward grants end piecewise.
+        let free = #"""
+        {"code":0,"msg":"OK","data":{"Accounts":[
+          {"CapacityUnit":"credits","CycleEndTime":"2026-10-31 23:59:59"},
+          {"CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21"}
+        ]}}
+        """#
+        let snapshot = try await Self.fetch(
+            engine: engine,
+            routes: [Self.paidPath: (200, paid), Self.freePath: (200, free)])
+        // 2026-11-24 12:44:13 +08:00, plus one second.
+        #expect(snapshot.primary?.resetsAt == Date(timeIntervalSince1970: 1_795_495_454))
+    }
+
+    @Test(arguments: BundledPluginTestSupport.engines)
+    func `an exhausted paid cycle falls back to the free grants`(engine: ProviderPluginEngineKind) async throws {
+        let paid = #"""
+        {"code":0,"msg":"OK","data":{"Accounts":[
+          {"CapacityUnit":"credits","CycleEndTime":"2026-09-30 23:59:59"}
+        ]}}
+        """#
+        let snapshot = try await Self.fetch(engine: engine, routes: [Self.paidPath: (200, paid)])
+        #expect(snapshot.primary?.resetsAt == Self.octoberReset)
+    }
+
     @Test(
         arguments: [
             (401, "{}"), (500, "{}"), (200, #"{"code":4001,"msg":"denied"}"#),

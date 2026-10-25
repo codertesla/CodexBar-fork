@@ -2,6 +2,10 @@
 
 ## 0.81.1 — Unreleased
 
+### Fixed
+
+- WorkBuddy: keep the reset on the paid subscription cycle so an earlier trial or reward grant no longer shortens a monthly plan to a few days.
+
 ## 0.81.0 — 2026-10-24
 
 ### Highlights
