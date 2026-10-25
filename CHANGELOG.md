@@ -2,6 +2,10 @@
 
 ## 0.81.1 — Unreleased
 
+### Fixed
+
+- WorkBuddy: use the official brand mark instead of the placeholder letter icon.
+
 ## 0.81.0 — 2026-10-24
 
 ### Highlights
