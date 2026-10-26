@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- WorkBuddy: keep the reset on the paid subscription cycle so an earlier trial or reward grant no longer shortens a monthly plan to a few days.
+- WorkBuddy: keep resets on the paid subscription cycle instead of an earlier trial or reward expiry (#4767). Thanks @codertesla!
 
 ## 0.81.0 — 2026-10-24
 

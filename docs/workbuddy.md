@@ -68,6 +68,7 @@ cookies to each request. A session is accepted into the cache only after a succe
   requests without `PackageCodes` (HTTP 400, code `10001`), so the plugin sends the paid and free package codes used by
   the WorkBuddy 5.6.2 client; packages added later are not considered for the reset. A failed or unexpected listing
   keeps the balance, including HTTP 401; a successful listing can still supply the reset if the other listing fails.
+  Free packages are queried only when no future paid reset is available.
   Both listings share at most five seconds, capped before the overall fetch deadline; a stalled listing cannot consume
   the balance's publication time. Only the first 100 accounts in each listing are considered. Cancelling a refresh still
   stops the fetch.

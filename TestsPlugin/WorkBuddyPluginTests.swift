@@ -1,9 +1,9 @@
 import Foundation
+import Testing
+@testable import CodexBarCore
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
-import Testing
-@testable import CodexBarCore
 
 /// Plugin-engine coverage for the bundled WorkBuddy billing script.
 struct WorkBuddyPluginTests {
