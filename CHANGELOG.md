@@ -5,6 +5,9 @@
 ### Fixed
 
 - WorkBuddy: keep resets on the paid subscription cycle instead of an earlier trial or reward expiry (#4767). Thanks @codertesla!
+### Added
+
+- Plugins: allow detail progress bars to display native pace markers, respecting Show pace (#4776). Thanks @KLIEBHAN!
 
 ## 0.81.0 — 2026-10-24
 
