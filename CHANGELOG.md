@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- WorkBuddy: use the official brand mark instead of the placeholder letter icon.
+- WorkBuddy: use the official mascot instead of the placeholder letter icon (#4768). Thanks @codertesla!
 
 ## 0.81.0 — 2026-10-24
 
