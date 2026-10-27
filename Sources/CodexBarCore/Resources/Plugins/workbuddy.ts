@@ -103,6 +103,16 @@ defineProvider({
       // The dashboard refreshes one second after the inclusive end time.
       return new Date(end.getTime() + 1000);
     };
+    // Spent grants stay in the listing until their cycle ends. The dashboard reports the lapse of the
+    // grants that still carry credits, so a grant with nothing left must not bound the reward window.
+    const creditsLeft = (value: unknown): number | undefined => {
+      try {
+        return amount(value, "CycleCapacityRemain");
+      } catch (error) {
+        void error;
+        return undefined;
+      }
+    };
     // Package codes the WorkBuddy client sends for its paid and free listings (WorkBuddy 5.6.2).
     const paidPackageCodes = [
       "TCACA_code_002_AkiJS3ZHF5",
@@ -167,9 +177,11 @@ defineProvider({
               const end = cycleEnd(account.CycleEndTime);
               if (!end || end.getTime() <= now) continue;
               if (isFree) {
-                // Reward grants expire piecewise; the earliest future grant bounds the reward window.
+                // Reward grants expire piecewise; the earliest grant that still holds credits bounds the window.
+                const left = creditsLeft(account.CycleCapacityRemain);
                 if (
                   account.PackageCode === benefitPackageCode &&
+                  (left === undefined || left > 0) &&
                   (!rewardExpiry || end.getTime() < rewardExpiry.getTime())
                 ) {
                   rewardExpiry = end;

@@ -4,7 +4,7 @@
 
 ### Added
 
-- WorkBuddy: break the platform reward credits out into their own window with the earliest grant expiry, so reward balances no longer hide inside the monthly allowance.
+- WorkBuddy: break the platform reward credits out into their own window, expiring with the earliest grant that still carries credits, so reward balances no longer hide inside the monthly allowance and spent grants no longer pull the date forward.
 
 ## 0.82.0 — 2026-10-26
 

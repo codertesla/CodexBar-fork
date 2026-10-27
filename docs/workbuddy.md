@@ -88,7 +88,7 @@ order, and resource IDs); the plugin never uses, displays, or logs them.
 | Earliest future `CycleEndTime` in the paid listing | The meter's reset line. The paid listing carries the subscription cycle, which is what refills the allowance; the free listing only supplies the reset when the paid listing has no future cycle end, so the trial grant that closes with the calendar month cannot shorten a paid cycle. The value has no zone and is read as China Standard Time (UTC+8), one second after the inclusive end, matching the dashboard. |
 | `CycleFrozenCapacity` | A **Reserved** row when above zero, as reported. |
 | `benefit` credit group | A **Rewards** window with its own bar and `621 / 2,139 credits left` under it. These grants are already inside the **Credits** meter; the window only breaks them out. Plugin snapshots hide extra windows unless the provider descriptor asks for them, so `WorkBuddyProviderDescriptor` selects them and marks this window's description as the card's detail line. |
-| Earliest future reward-grant `CycleEndTime` | A **Reward expiry** row, because reward credits lapse grant by grant instead of resetting; the window carries the balance and no countdown. |
+| Earliest `CycleEndTime` of the reward grants that still carry credits | A **Reward expiry** row, because reward credits lapse grant by grant instead of resetting; the window carries the balance and no countdown. Spent grants stay in the listing until their cycle ends, and the dashboard ignores them, so they never pull this date forward. |
 | `SubscriptionPackageName` | Header plan label, as returned (for example `体验版` for the free tier). |
 
 **Left** and **Total** rows appear instead of the meter when the total is zero; any reserved credits remain visible.

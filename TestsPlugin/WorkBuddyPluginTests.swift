@@ -246,6 +246,35 @@ struct WorkBuddyPluginTests {
     }
 
     @Test(arguments: BundledPluginTestSupport.engines)
+    func `a spent reward grant does not bound the reward window`(engine: ProviderPluginEngineKind) async throws {
+        let summary = #"""
+        {"code":0,"msg":"OK","data":{"SubscriptionPackageName":"标准版","Packages":[
+          {"CycleTotalCapacity":"2000","CycleRemainCapacity":"1500","CapacityUnit":"credits"}
+        ],"CreditGroups":[
+          {"Kind":"benefit","Name":"平台奖励积分","CycleTotalCapacity":"2139","CycleRemainCapacity":"621","CapacityUnit":"credits","TotalCount":2}
+        ]}}
+        """#
+        let paid = #"""
+        {"code":0,"msg":"OK","data":{"Accounts":[
+          {"PackageCode":"TCACA_code_002_AkiJS3ZHF5","CapacityUnit":"credits","CycleEndTime":"2026-11-24 12:44:13"}
+        ]}}
+        """#
+        // Spent grants stay in the listing until their cycle ends. The dashboard reports the lapse of the
+        // grant that still carries credits, so the earlier emptied one must not pull the window forward.
+        let free = #"""
+        {"code":0,"msg":"OK","data":{"Accounts":[
+          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21","CycleCapacityRemain":"0"},
+          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-24 21:16:43","CycleCapacityRemain":"6"}
+        ]}}
+        """#
+        let snapshot = try await Self.fetch(
+            engine: engine,
+            routes: [Self.summaryPath: (200, summary), Self.paidPath: (200, paid), Self.freePath: (200, free)])
+        let rows = try #require(snapshot.details.first?.rows)
+        #expect(rows.contains { $0.label == "Reward expiry" && $0.value == "Nov 24" })
+    }
+
+    @Test(arguments: BundledPluginTestSupport.engines)
     func `an empty reward group adds no window and no expiry row`(engine: ProviderPluginEngineKind) async throws {
         let summary = #"""
         {"code":0,"msg":"OK","data":{"SubscriptionPackageName":"体验版","Packages":[
