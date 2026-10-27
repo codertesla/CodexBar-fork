@@ -248,13 +248,10 @@ defineProvider({
       }
       const wantsRewards = rewardTotal > 0;
       const cycle = await listings(session, agent, wantsRewards);
-      // The CLI prints detail rows rather than named windows, so the rewards keep their amounts here.
-      if (wantsRewards) {
-        const left = `${format(rewardRemaining)} / ${format(rewardTotal)} credits left`;
-        rows.push({
-          label: "Rewards",
-          value: cycle.rewardExpiry ? `${left}, expires ${ctx.format.monthDay(cycle.rewardExpiry.getTime())}` : left,
-        });
+      // The window carries the balance; it cannot carry a countdown, because reward credits lapse
+      // grant by grant instead of resetting, so the expiry stays a detail row.
+      if (wantsRewards && cycle.rewardExpiry) {
+        rows.push({ label: "Reward expiry", value: ctx.format.monthDay(cycle.rewardExpiry.getTime()) });
       }
       const extraWindows: CodexBarNamedRateWindow[] = wantsRewards
         ? [

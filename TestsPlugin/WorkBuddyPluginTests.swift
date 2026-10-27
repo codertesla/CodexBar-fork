@@ -241,8 +241,8 @@ struct WorkBuddyPluginTests {
             routes: [Self.summaryPath: (200, summary), Self.paidPath: (200, paid), Self.freePath: (200, free)])
         #expect(snapshot.primary?.resetsAt == Date(timeIntervalSince1970: 1_795_495_454))
         let rows = try #require(snapshot.details.first?.rows)
-        // The CLI prints detail rows instead of named windows, so the amounts and the earliest grant travel together.
-        #expect(rows.contains { $0.label == "Rewards" && $0.value == "621 / 2,139 credits left, expires Nov 11" })
+        // The window carries the balance, so the row only carries what a window cannot: the expiry date.
+        #expect(rows.contains { $0.label == "Reward expiry" && $0.value == "Nov 11" })
     }
 
     @Test(arguments: BundledPluginTestSupport.engines)
@@ -707,6 +707,29 @@ struct WorkBuddyPluginTests {
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+    }
+
+    /// Plugin snapshots hide extra windows unless the provider descriptor asks for them, so the wiring is
+    /// part of the feature: without it the window exists in the snapshot but never reaches a surface.
+    @Test
+    func `the reward window reaches the card and the CLI`() {
+        let rewards = NamedRateWindow(
+            id: "rewards",
+            title: "Rewards",
+            window: RateWindow(
+                usedPercent: 70.96774193548387,
+                windowMinutes: nil,
+                resetsAt: nil,
+                resetDescription: "621 / 2,139 credits left"))
+        let snapshot = UsageSnapshot(
+            primary: nil,
+            secondary: nil,
+            extraRateWindows: [rewards],
+            updatedAt: Date(timeIntervalSince1970: 0))
+        let presentation = WorkBuddyProviderDescriptor.descriptor.presentation
+        #expect(presentation.extraRateWindows(snapshot: snapshot).map(\.id) == ["rewards"])
+        // The balance lives in the description, so the card has to print it as the detail line.
+        #expect(presentation.menuCard.extraRateWindowShowsResetDescriptionAsDetail(rewards))
     }
 
     private static func response(
