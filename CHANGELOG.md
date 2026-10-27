@@ -2,6 +2,10 @@
 
 ## 0.82.1 — Unreleased
 
+### Added
+
+- WorkBuddy: break the platform reward credits out into their own window with the earliest grant expiry, so reward balances no longer hide inside the monthly allowance.
+
 ## 0.82.0 — 2026-10-26
 
 ### Highlights
