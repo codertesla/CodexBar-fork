@@ -271,7 +271,7 @@ struct WorkBuddyPluginTests {
             engine: engine,
             routes: [Self.summaryPath: (200, summary), Self.paidPath: (200, paid), Self.freePath: (200, free)])
         let rows = try #require(snapshot.details.first?.rows)
-        #expect(rows.contains { $0.label == "Reward expiry" && $0.value == "Nov 24" })
+        #expect(rows.filter { $0.label == "Reward expiry" }.map(\.value) == ["Nov 24"])
     }
 
     @Test(arguments: BundledPluginTestSupport.engines)
