@@ -4,7 +4,14 @@
 
 ### Added
 
-- WorkBuddy: break the platform reward credits out into their own window, expiring with the earliest grant that still carries credits, so reward balances no longer hide inside the monthly allowance and spent grants no longer pull the date forward.
+- WorkBuddy: show platform reward credits separately within the total allowance, with the earliest unspent grant’s expiry and no false allowance reset when rewards expire. (#4799) Thanks @codertesla!
+
+### Fixed
+
+- Cursor: explain when the Cursor app session has expired and no browser session works, with steps to sign in again (#4804). Thanks @julianpinedayyz!
+### Changed
+
+- Updates: refresh Sparkle to improve update installation, download progress, and release-note handling.
 
 ## 0.82.0 — 2026-10-26
 

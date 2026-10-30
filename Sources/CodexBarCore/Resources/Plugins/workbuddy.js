@@ -175,12 +175,16 @@ defineProvider({
                 const left = creditsLeft(account.CycleCapacityRemain);
                 if (
                   account.PackageCode === benefitPackageCode &&
-                  (left === undefined || left > 0) &&
+                  left !== undefined &&
+                  left > 0 &&
                   (!rewardExpiry || end.getTime() < rewardExpiry.getTime())
                 ) {
                   rewardExpiry = end;
                 }
-                if (!freeReset || end.getTime() < freeReset.getTime()) freeReset = end;
+                // Reward grants expire; they never supply the allowance's fallback reset.
+                if (account.PackageCode !== benefitPackageCode && (!freeReset || end.getTime() < freeReset.getTime())) {
+                  freeReset = end;
+                }
               } else if (!paidReset || end.getTime() < paidReset.getTime()) {
                 paidReset = end;
               }

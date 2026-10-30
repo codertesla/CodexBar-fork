@@ -164,7 +164,7 @@ struct WorkBuddyPluginTests {
         let free = #"""
         {"code":0,"msg":"OK","data":{"Accounts":[
           {"CapacityUnit":"credits","CycleEndTime":"2026-10-31 23:59:59"},
-          {"CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21"}
+          {"CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21","CycleCapacityRemain":"21"}
         ]}}
         """#
         let snapshot = try await Self.fetch(
@@ -189,10 +189,11 @@ struct WorkBuddyPluginTests {
     func `platform reward credits become their own window`(engine: ProviderPluginEngineKind) async throws {
         let summary = #"""
         {"code":0,"msg":"OK","data":{"SubscriptionPackageName":"标准版","Packages":[
-          {"CycleTotalCapacity":"2000","CycleRemainCapacity":"1500","CapacityUnit":"credits"},
+          {"CycleTotalCapacity":"2000","CycleRemainCapacity":"1479.09","CapacityUnit":"credits"},
+          {"CycleTotalCapacity":"2000","CycleRemainCapacity":"2000","CapacityUnit":"credits"},
           {"CycleTotalCapacity":"2139","CycleRemainCapacity":"621","CapacityUnit":"credits"}
         ],"CreditGroups":[
-          {"Kind":"plan_base","Name":"套餐基础积分","CycleTotalCapacity":"2000","CycleRemainCapacity":"1500","CapacityUnit":"credits","TotalCount":1},
+          {"Kind":"plan_base","Name":"套餐基础积分","CycleTotalCapacity":"2000","CycleRemainCapacity":"1479.09","CapacityUnit":"credits","TotalCount":1},
           {"Kind":"plan_bonus","Name":"套餐赠送积分","CycleTotalCapacity":"2000","CycleRemainCapacity":"2000","CapacityUnit":"credits","TotalCount":1},
           {"Kind":"addon","Name":"购买积分","CycleTotalCapacity":"0","CycleRemainCapacity":"0","CapacityUnit":"credits","TotalCount":0},
           {"Kind":"benefit","Name":"平台奖励积分","CycleTotalCapacity":"2139","CycleRemainCapacity":"621","CapacityUnit":"credits","TotalCount":24}
@@ -207,8 +208,9 @@ struct WorkBuddyPluginTests {
         #expect(abs(rewards.window.usedPercent - (2139.0 - 621.0) / 2139.0 * 100) < 0.001)
         #expect(rewards.window.resetDescription == "621 / 2,139 credits left")
         #expect(rewards.window.resetsAt == nil)
+        #expect(snapshot.primary?.resetDescription == "4,100.09 / 6,139 credits left")
         // Rewards ride inside the primary allowance; the meter itself is untouched.
-        #expect(abs((snapshot.primary?.usedPercent ?? 0) - (4139.0 - 2121.0) / 4139.0 * 100) < 0.001)
+        #expect(abs((snapshot.primary?.usedPercent ?? 0) - (6139.0 - 4100.09) / 6139.0 * 100) < 0.001)
     }
 
     @Test(arguments: BundledPluginTestSupport.engines)
@@ -232,8 +234,8 @@ struct WorkBuddyPluginTests {
         let free = #"""
         {"code":0,"msg":"OK","data":{"Accounts":[
           {"PackageCode":"TCACA_code_008_cfWoLwvjU4","CapacityUnit":"credits","CycleEndTime":"2026-10-31 23:59:59"},
-          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-18 17:11:10"},
-          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21"}
+          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-18 17:11:10","CycleCapacityRemain":"600"},
+          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21","CycleCapacityRemain":"21"}
         ]}}
         """#
         let snapshot = try await Self.fetch(
@@ -246,7 +248,9 @@ struct WorkBuddyPluginTests {
     }
 
     @Test(arguments: BundledPluginTestSupport.engines)
-    func `a spent reward grant does not bound the reward window`(engine: ProviderPluginEngineKind) async throws {
+    func `only reward grants with known remaining credits bound the expiry`(
+        engine: ProviderPluginEngineKind) async throws
+    {
         let summary = #"""
         {"code":0,"msg":"OK","data":{"SubscriptionPackageName":"标准版","Packages":[
           {"CycleTotalCapacity":"2000","CycleRemainCapacity":"1500","CapacityUnit":"credits"}
@@ -263,6 +267,7 @@ struct WorkBuddyPluginTests {
         // grant that still carries credits, so the earlier emptied one must not pull the window forward.
         let free = #"""
         {"code":0,"msg":"OK","data":{"Accounts":[
+          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-10 23:09:21"},
           {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21","CycleCapacityRemain":"0"},
           {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-24 21:16:43","CycleCapacityRemain":"6"}
         ]}}
@@ -272,6 +277,32 @@ struct WorkBuddyPluginTests {
             routes: [Self.summaryPath: (200, summary), Self.paidPath: (200, paid), Self.freePath: (200, free)])
         let rows = try #require(snapshot.details.first?.rows)
         #expect(rows.filter { $0.label == "Reward expiry" }.map(\.value) == ["Nov 24"])
+    }
+
+    @Test(arguments: BundledPluginTestSupport.engines)
+    func `reward expiries never stand in for allowance resets`(engine: ProviderPluginEngineKind) async throws {
+        let summary = #"""
+        {"code":0,"data":{"Packages":[
+          {"CycleTotalCapacity":"2139","CycleRemainCapacity":"621","CapacityUnit":"credits"}
+        ],"CreditGroups":[
+          {"Kind":"benefit","CycleTotalCapacity":"2139","CycleRemainCapacity":"621","CapacityUnit":"credits"}
+        ]}}
+        """#
+        let free = #"""
+        {"code":0,"data":{"Accounts":[
+          {"PackageCode":"TCACA_code_007_nzdH5h4Nl0","CapacityUnit":"credits","CycleEndTime":"2026-11-11 23:09:21","CycleCapacityRemain":"621"}
+        ]}}
+        """#
+        let snapshot = try await Self.fetch(
+            engine: engine,
+            routes: [
+                Self.summaryPath: (200, summary),
+                Self.paidPath: (200, Self.emptyPackages),
+                Self.freePath: (200, free),
+            ])
+        let primary = try #require(snapshot.primary)
+        #expect(primary.resetDescription == "621 / 2,139 credits left")
+        #expect(primary.resetsAt == nil)
     }
 
     @Test(arguments: BundledPluginTestSupport.engines)

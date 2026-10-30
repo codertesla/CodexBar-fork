@@ -71,7 +71,8 @@ cookies to each request. A session is accepted into the cache only after a succe
   the WorkBuddy 5.6.2 client; packages added later are not considered for the reset. A failed or unexpected listing
   keeps the balance, including HTTP 401; a successful listing can still supply the reset if the other listing fails.
   Free packages are queried when no future paid reset is available, and also whenever reward credits exist, because the
-  per-grant expiries live only in the free listing. `CycleEndTime` is ignored for accounts whose `PackageCode` is not the
+  per-grant expiries live only in the free listing. Reward grants never supply the main allowance’s fallback reset.
+  For reward expiry, `CycleEndTime` is ignored for accounts whose `PackageCode` is not the
   reward code, so the trial grant that closes with the calendar month cannot bound the reward window.
   Both listings share at most five seconds, capped before the overall fetch deadline; a stalled listing cannot consume
   the balance's publication time. Only the first 100 accounts in each listing are considered. Cancelling a refresh still
@@ -85,10 +86,10 @@ order, and resource IDs); the plugin never uses, displays, or logs them.
 | Field | Display |
 | --- | --- |
 | Summed `CycleTotalCapacity` / `CycleRemainCapacity` | One **Credits** meter when the total is above zero, with `450 / 500 credits left` under the bar. Used is `total − remaining`, so rollover above the grant shows 0% used. |
-| Earliest future `CycleEndTime` in the paid listing | The meter's reset line. The paid listing carries the subscription cycle, which is what refills the allowance; the free listing only supplies the reset when the paid listing has no future cycle end, so the trial grant that closes with the calendar month cannot shorten a paid cycle. The value has no zone and is read as China Standard Time (UTC+8), one second after the inclusive end, matching the dashboard. |
+| Earliest future `CycleEndTime` in the paid listing | The meter's reset line. The paid listing carries the subscription cycle, which is what refills the allowance; non-reward free grants only supply the reset when the paid listing has no future cycle end, so the trial grant that closes with the calendar month cannot shorten a paid cycle. The value has no zone and is read as China Standard Time (UTC+8), one second after the inclusive end, matching the dashboard. |
 | `CycleFrozenCapacity` | A **Reserved** row when above zero, as reported. |
-| `benefit` credit group | A **Rewards** window with its own bar and `621 / 2,139 credits left` under it. These grants are already inside the **Credits** meter; the window only breaks them out. Plugin snapshots hide extra windows unless the provider descriptor asks for them, so `WorkBuddyProviderDescriptor` selects them and marks this window's description as the card's detail line. |
-| Earliest `CycleEndTime` of the reward grants that still carry credits | A **Reward expiry** row, because reward credits lapse grant by grant instead of resetting; the window carries the balance and no countdown. Spent grants stay in the listing until their cycle ends, and the dashboard ignores them, so they never pull this date forward. |
+| `benefit` credit group | A **Rewards** window with its own bar and `621 / 2,139 credits left` under it. These grants are already inside the **Credits** meter; the window only breaks them out. |
+| Earliest `CycleEndTime` of the reward grants that still carry credits | A **Reward expiry** row, because reward credits lapse grant by grant instead of resetting; the window carries the balance and no countdown. Spent grants stay in the listing until their cycle ends, and the dashboard ignores them, so they never pull this date forward. Grants without a readable remaining balance are omitted from the expiry lookup. |
 | `SubscriptionPackageName` | Header plan label, as returned (for example `体验版` for the free tier). |
 
 **Left** and **Total** rows appear instead of the meter when the total is zero; any reserved credits remain visible.
